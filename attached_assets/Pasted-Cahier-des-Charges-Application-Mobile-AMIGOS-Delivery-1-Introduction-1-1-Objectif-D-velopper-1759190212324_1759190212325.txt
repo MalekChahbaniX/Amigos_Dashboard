@@ -1,0 +1,91 @@
+Cahier des Charges - Application Mobile AMIGOS Delivery
+
+1. Introduction
+1.1 Objectif
+Développer une application mobile pour le service de livraison AMIGOS Delivery, permettant aux utilisateurs de commander des produits (principalement alimentaires) et d'accéder à divers services de livraison et transactions, avec un suivi intégré. L'application supportera trois types d'utilisateurs : livreurs (superAdmin) et clients.
+1.2 Public Cible
+•	Clients individuels cherchant des services de livraison rapide.
+•	Restaurants, commerçants, pharmacies, et prestataires de services partenaires.
+•	Livreurs pour la gestion des livraisons.
+•	Chauffeurs de taxi pour la gestion des courses.
+1.3 Technologies
+•	Frontend: React Native pour une application multiplateforme (iOS et Android).
+•	Backend: Node.js avec une API RESTful pour la gestion des commandes, livraisons, et transactions.
+•	Base de données: MongoDB avec Mongoose comme ODM.
+2. Fonctionnalités
+2.1 Page d'Accueil
+•	Bouton "Commencer" pour lancer le processus de commande ou de service.
+•	Design avec le logo AMIGOS Delivery et une interface en orange et blanc.
+2.2 Authentification
+•	Connexion par téléphone:
+o	Entrée du numéro de téléphone.
+o	Envoi d'un code SMS à 4 chiffres.
+o	Champ pour insérer le code reçu.
+•	Demande de nom:
+o	Champ de saisie pour le prénom.
+•	Localisation:
+o	Demande de permission pour utiliser la position GPS.
+o	Bouton "Utiliser ma position".
+•	Type d'utilisateur:
+o	Clients (utilisateurs standards).
+o	SuperAdmin (livreurs) avec gestion des livraisons.
+2.3 Menu Principal
+•	Recherche de services ou prestataires (champ de recherche).
+•	Catégories de services:
+o	Restaurants
+o	Courses
+o	Pharmacie
+•	Liste des options avec images, noms, et temps estimé (ex. Adam's Pizza, Babaslim).
+2.4 Pages de Services
+2.4.1 Restaurants
+•	Page de Produits: Affichage des produits avec images, noms, et prix (ex. Crêpe Spéculoos 18,50 DT).
+•	Panier: Ajouter des produits avec +/-, bouton "Finaliser votre commande".
+•	Confirmation: Résumé du panier, adresse de livraison (carte), et options de paiement.
+•	Gestion livreur: Assignation à un superAdmin pour la livraison.
+2.4.2 Courses (Grocery Delivery)
+•	Procedure:
+o	Sélectionner "Courses" pour voir les magasins.
+o	Parcourir les produits (légumes, produits laitiers) avec images et prix.
+o	Ajouter au panier avec +/-, puis finaliser.
+o	Confirmation avec résumé, adresse, et paiement.
+•	Specifics: Filtrer par magasin ou type de produit, temps de livraison estimé, assignation à un livreur.
+2.4.4 Pharmacie (Pharmacy Delivery)
+•	Procedure:
+o	Sélectionner "Pharmacie" pour les pharmacies.
+o	Parcourir médicaments avec images et prix, option de téléverser une ordonnance.
+o	Ajouter au panier, puis finaliser.
+o	Confirmation avec adresse et paiement.
+•	Specifics: Vérification de disponibilité, option livraison urgente, assignation à un livreur.
+2.5 Panier
+•	Liste des produits ou services avec quantités et prix totaux.
+•	Bouton "Finaliser" avec montant total (ex. 37,000 DT).
+•	Option d’ajouter des éléments supplémentaires.
+2.6 Confirmation de Commande/Service
+•	Résumé du panier avec produits/services, quantités, et prix.
+•	Détails de livraison:
+o	Adresse (carte interactive avec localisation).
+•	Moyens de paiement:
+o	Carte bancaire.
+o	Paiement en cash.
+•	Bouton de confirmation finale.
+•	Assignation à un livreur ou taxi selon le service.
+2.7 Gestion des Utilisateurs
+•	Client: Accès complet aux services et suivi des commandes.
+•	SuperAdmin (Livreur):
+o	Tableau de bord des livraisons actives.
+o	Historique des livraisons passées.
+o	Statut d’activité (actif/inactif).
+o	Accès complet aux services.
+
+3. Design et UX
+•	Palette de couleurs: Orange (#F28C38), Blanc (#FFFFFF), Gris (#D3D3D3).
+•	Typographie: Police lisible et moderne (ex. Roboto ou Open Sans).
+•	Interface responsive adaptée aux écrans mobiles.
+•	Navigation via une barre inférieure avec icônes (Accueil, Panier, Profil).
+4. Exigences Techniques
+•	React Native: Utilisation de composants comme FlatList, TextInput, et MapView.
+•	Gestion d'état: Redux ou Context API pour gérer le panier, les utilisateurs, et les données.
+•	API: Intégration avec une API Node.js pour les données des prestataires, produits, livraisons, transactions, et messages.
+•	MongoDB: Modèles avec Mongoose pour User, Product, Provider, Order, et Transaction.
+•	Permissions: Accès à la localisation et aux SMS (pour le code de vérification).
+•	Tests: Unitaires et d'intégration sur iOS et Android.
