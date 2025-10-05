@@ -41,4 +41,12 @@ export default defineConfig({
       host: 'localhost',
     },
   },
+  preview: {
+    // Bind to all interfaces so Render can detect the open port
+    host: '0.0.0.0',
+    // Use Render's provided PORT when available
+    port: Number(process.env.PORT) || 5173,
+    // Allow the Render external host (or explicit fallback) to access preview
+    allowedHosts: [process.env.RENDER_EXTERNAL_URL || 'amigos-dashboard-rrnj.onrender.com'],
+  },
 });
