@@ -14,6 +14,8 @@ import Clients from "@/pages/Clients";
 import Deliverers from "@/pages/Deliverers";
 import Providers from "@/pages/Providers";
 import Products from "@/pages/Products";
+import Analytics from "@/pages/Analytics";
+import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -73,6 +75,16 @@ function Router() {
       <Route path="/products">
         <DashboardLayout>
           <Products />
+        </DashboardLayout>
+      </Route>
+      <Route path="/analytics">
+        <DashboardLayout>
+          <Analytics />
+        </DashboardLayout>
+      </Route>
+      <Route path="/settings">
+        <DashboardLayout>
+          <Settings />
         </DashboardLayout>
       </Route>
       <Route component={NotFound} />

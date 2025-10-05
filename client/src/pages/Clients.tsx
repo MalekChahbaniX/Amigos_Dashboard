@@ -14,60 +14,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { apiService } from "@/lib/api";
 
-// TODO: Remove mock data
-const clients = [
-  { 
-    id: "1", 
-    name: "Ahmed Ben Ali", 
-    phone: "+216 98 765 432",
-    email: "ahmed.benali@email.com",
-    totalOrders: 45, 
-    totalSpent: "1,245.50 DT",
-    status: "active" as const,
-    joinDate: "15/01/2025"
-  },
-  { 
-    id: "2", 
-    name: "Sara Mansour", 
-    phone: "+216 22 123 456",
-    email: "sara.mansour@email.com",
-    totalOrders: 32, 
-    totalSpent: "890.00 DT",
-    status: "active" as const,
-    joinDate: "20/02/2025"
-  },
-  { 
-    id: "3", 
-    name: "Mohamed Triki", 
-    phone: "+216 55 987 654",
-    email: "m.triki@email.com",
-    totalOrders: 18, 
-    totalSpent: "456.80 DT",
-    status: "active" as const,
-    joinDate: "05/03/2025"
-  },
-  { 
-    id: "4", 
-    name: "Leila Hamdi", 
-    phone: "+216 29 456 789",
-    email: "leila.h@email.com",
-    totalOrders: 8, 
-    totalSpent: "234.50 DT",
-    status: "inactive" as const,
-    joinDate: "12/08/2025"
-  },
-  { 
-    id: "5", 
-    name: "Karim Jebali", 
-    phone: "+216 97 321 654",
-    email: "karim.jebali@email.com",
-    totalOrders: 67, 
-    totalSpent: "2,345.20 DT",
-    status: "active" as const,
-    joinDate: "08/12/2024"
-  },
-];
+interface Client {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  totalOrders: number;
+  totalSpent: string;
+  status: "active" | "inactive";
+  joinDate: string;
+}
 
 interface Client {
   id: string;
@@ -88,6 +47,7 @@ interface CreateClientForm {
 }
 
 export default function Clients() {
+  const { toast } = useToast();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -107,17 +67,15 @@ export default function Clients() {
   const fetchClients = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        ...(searchQuery && { search: searchQuery })
-      });
-
-      const response = await fetch(`/api/clients?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setClients(data.clients || []);
-      }
-    } catch (error) {
+      const response = await apiService.getClients(searchQuery || undefined);
+      setClients(response.clients);
+    } catch (error: any) {
       console.error('Error fetching clients:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les clients",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -129,43 +87,38 @@ export default function Clients() {
 
   const handleCreateClient = async () => {
     if (!createForm.name || !createForm.phone || !createForm.email) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      toast({
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs obligatoires",
+        variant: "destructive",
+      });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const clientData = {
+      const response = await apiService.createClient({
         name: createForm.name,
         phone: createForm.phone,
         email: createForm.email,
-        address: createForm.address,
-        userId: "1" // TODO: Get from authenticated user
-      };
-
-      const response = await fetch('/api/clients', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(clientData),
+        address: createForm.address || undefined,
       });
 
-      if (response.ok) {
-        setIsCreateDialogOpen(false);
-        setCreateForm({
-          name: "",
-          phone: "",
-          email: "",
-          address: ""
-        });
-        fetchClients();
-      } else {
-        alert('Erreur lors de la création du client');
-      }
-    } catch (error) {
+      toast({
+        title: "Succès",
+        description: response.message || "Client créé avec succès",
+      });
+
+      setIsCreateDialogOpen(false);
+      resetCreateForm();
+      fetchClients();
+    } catch (error: any) {
       console.error('Error creating client:', error);
-      alert('Erreur lors de la création du client');
+      toast({
+        title: "Erreur",
+        description: error.message || "Erreur lors de la création du client",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }

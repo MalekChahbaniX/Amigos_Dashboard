@@ -15,6 +15,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { apiService } from "@/lib/api";
 
 interface Deliverer {
   id: string;
@@ -44,6 +46,7 @@ interface CreateDelivererForm {
 }
 
 export default function Deliverers() {
+  const { toast } = useToast();
   const [deliverers, setDeliverers] = useState<Deliverer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -62,28 +65,25 @@ export default function Deliverers() {
   const fetchDeliverers = async (page = 1) => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: "10",
-        ...(searchQuery && { search: searchQuery })
+      const response = await apiService.getDeliverers(searchQuery || undefined, page, 10);
+
+      setDeliverers(response.deliverers);
+      setTotalPages(response.totalPages);
+      setCurrentPage(response.page);
+
+      // Initialize deliverer states
+      const states: Record<string, boolean> = {};
+      response.deliverers.forEach(d => {
+        states[d.id] = d.isActive;
       });
-
-      const response = await fetch(`/api/deliverers?${params}`);
-      if (response.ok) {
-        const data: DeliverersResponse = await response.json();
-        setDeliverers(data.deliverers);
-        setTotalPages(data.totalPages);
-        setCurrentPage(data.page);
-
-        // Initialize deliverer states
-        const states: Record<string, boolean> = {};
-        data.deliverers.forEach(d => {
-          states[d.id] = d.isActive;
-        });
-        setDelivererStates(states);
-      }
-    } catch (error) {
+      setDelivererStates(states);
+    } catch (error: any) {
       console.error('Error fetching deliverers:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les livreurs",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -98,64 +98,54 @@ export default function Deliverers() {
     setDelivererStates(prev => ({ ...prev, [id]: newState }));
 
     try {
-      const response = await fetch(`/api/deliverers/${id}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ isAvailable: newState }),
-      });
-
-      if (!response.ok) {
-        // Revert state if API call fails
-        setDelivererStates(prev => ({ ...prev, [id]: !newState }));
-      }
-    } catch (error) {
+      await apiService.updateDelivererStatus(id, newState);
+    } catch (error: any) {
       console.error('Error updating deliverer status:', error);
       // Revert state if API call fails
       setDelivererStates(prev => ({ ...prev, [id]: !newState }));
+
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour le statut du livreur",
+        variant: "destructive",
+      });
     }
   };
 
   const handleCreateDeliverer = async () => {
     if (!createForm.name || !createForm.phone || !createForm.vehicle || !createForm.location) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      toast({
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs obligatoires",
+        variant: "destructive",
+      });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const delivererData = {
+      const response = await apiService.createDeliverer({
         name: createForm.name,
         phone: createForm.phone,
         vehicle: createForm.vehicle,
         location: createForm.location,
-        userId: "1" // TODO: Get from authenticated user
-      };
-
-      const response = await fetch('/api/deliverers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(delivererData),
       });
 
-      if (response.ok) {
-        setIsCreateDialogOpen(false);
-        setCreateForm({
-          name: "",
-          phone: "",
-          vehicle: "",
-          location: ""
-        });
-        fetchDeliverers(1);
-      } else {
-        alert('Erreur lors de la création du livreur');
-      }
-    } catch (error) {
+      toast({
+        title: "Succès",
+        description: response.message || "Livreur créé avec succès",
+      });
+
+      setIsCreateDialogOpen(false);
+      resetCreateForm();
+      fetchDeliverers(1);
+    } catch (error: any) {
       console.error('Error creating deliverer:', error);
-      alert('Erreur lors de la création du livreur');
+      toast({
+        title: "Erreur",
+        description: error.message || "Erreur lors de la création du livreur",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }

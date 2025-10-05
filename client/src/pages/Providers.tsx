@@ -22,6 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { apiService } from "@/lib/api";
 
 // TODO: Remove mock data
 const providers = [
@@ -116,6 +118,7 @@ interface CreateProviderForm {
 }
 
 export default function Providers() {
+  const { toast } = useToast();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -138,18 +141,18 @@ export default function Providers() {
   const fetchProviders = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        ...(activeTab !== "all" && { type: activeTab }),
-        ...(searchQuery && { search: searchQuery })
-      });
-
-      const response = await fetch(`/api/providers?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setProviders(data.providers || []);
-      }
-    } catch (error) {
+      const response = await apiService.getProviders(
+        activeTab !== "all" ? activeTab : undefined,
+        searchQuery || undefined
+      );
+      setProviders(response.providers);
+    } catch (error: any) {
       console.error('Error fetching providers:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les prestataires",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -161,47 +164,40 @@ export default function Providers() {
 
   const handleCreateProvider = async () => {
     if (!createForm.name || !createForm.phone || !createForm.address) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      toast({
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs obligatoires",
+        variant: "destructive",
+      });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const providerData = {
+      const response = await apiService.createProvider({
         name: createForm.name,
         type: createForm.type,
         phone: createForm.phone,
         address: createForm.address,
-        email: createForm.email,
-        description: createForm.description,
-        userId: "1" // TODO: Get from authenticated user
-      };
-
-      const response = await fetch('/api/providers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(providerData),
+        email: createForm.email || undefined,
+        description: createForm.description || undefined,
       });
 
-      if (response.ok) {
-        setIsCreateDialogOpen(false);
-        setCreateForm({
-          name: "",
-          type: "restaurant",
-          phone: "",
-          address: "",
-          email: "",
-          description: ""
-        });
-        fetchProviders();
-      } else {
-        alert('Erreur lors de la création du prestataire');
-      }
-    } catch (error) {
+      toast({
+        title: "Succès",
+        description: response.message || "Prestataire créé avec succès",
+      });
+
+      setIsCreateDialogOpen(false);
+      resetCreateForm();
+      fetchProviders();
+    } catch (error: any) {
       console.error('Error creating provider:', error);
-      alert('Erreur lors de la création du prestataire');
+      toast({
+        title: "Erreur",
+        description: error.message || "Erreur lors de la création du prestataire",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -346,7 +342,7 @@ export default function Providers() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {providers.length > 0 ? providers.map((provider) => {
+                {(providers && providers.length > 0) ? providers.map((provider) => {
                   const Icon = typeIcons[provider.type as keyof typeof typeIcons];
                   return (
                     <div

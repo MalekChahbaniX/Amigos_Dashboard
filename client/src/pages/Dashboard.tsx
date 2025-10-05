@@ -1,10 +1,13 @@
-import { ShoppingBag, Users, Truck, DollarSign, TrendingUp, Clock } from "lucide-react";
+import { ShoppingBag, Users, Truck, DollarSign, TrendingUp, Clock, LogOut, User } from "lucide-react";
 import { StatsCard } from "@/components/StatsCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { OrderStatusBadge } from "@/components/OrderStatusBadge";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { apiService } from "@/lib/api";
 
 interface DashboardStats {
   todayOrders: number;
@@ -29,34 +32,29 @@ interface ActiveDeliverer {
 }
 
 export default function Dashboard() {
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [activeDeliverers, setActiveDeliverers] = useState<ActiveDeliverer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Get current user info
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [statsRes, ordersRes, deliverersRes] = await Promise.all([
-          fetch('/api/dashboard/stats'),
-          fetch('/api/dashboard/recent-orders'),
-          fetch('/api/dashboard/active-deliverers')
+        const [statsData, ordersData, deliverersData] = await Promise.all([
+          apiService.getDashboardStats(),
+          apiService.getRecentOrders(),
+          apiService.getActiveDeliverers()
         ]);
 
-        if (statsRes.ok) {
-          const statsData = await statsRes.json();
-          setStats(statsData);
-        }
-
-        if (ordersRes.ok) {
-          const ordersData = await ordersRes.json();
-          setRecentOrders(ordersData);
-        }
-
-        if (deliverersRes.ok) {
-          const deliverersData = await deliverersRes.json();
-          setActiveDeliverers(deliverersData);
-        }
+        setStats(statsData);
+        setRecentOrders(ordersData);
+        setActiveDeliverers(deliverersData);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -67,14 +65,80 @@ export default function Dashboard() {
     fetchDashboardData();
   }, []);
 
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+
+    try {
+      await apiService.logoutSuperAdmin();
+
+      // Clear local storage
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+
+      toast({
+        title: "Déconnexion réussie",
+        description: "Vous avez été déconnecté avec succès",
+      });
+
+      // Redirect to login page
+      setLocation("/");
+
+    } catch (error: any) {
+      console.error('Logout error:', error);
+
+      // Even if API call fails, still logout locally
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+
+      toast({
+        title: "Déconnexion",
+        description: "Vous avez été déconnecté",
+      });
+
+      setLocation("/");
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center h-64">Chargement...</div>;
   }
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold">Dashboard</h1>
-        <p className="text-muted-foreground">Vue d'ensemble de votre activité</p>
+      {/* Header with user info and logout */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold">Dashboard</h1>
+          <p className="text-muted-foreground">Vue d'ensemble de votre activité</p>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 px-4 py-2 bg-muted rounded-lg">
+            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <User className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">
+                {currentUser.firstName} {currentUser.lastName}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                Super Administrateur
+              </span>
+            </div>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="flex items-center gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            {isLoggingOut ? "Déconnexion..." : "Déconnexion"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

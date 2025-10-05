@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { apiService } from "@/lib/api";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -15,8 +16,53 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Directly navigate to dashboard without any validation
-    setLocation("/dashboard");
+
+    if (!email || !password) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await apiService.loginSuperAdmin({
+        email,
+        password,
+      });
+
+      // Store authentication token
+      localStorage.setItem('authToken', response.token);
+      localStorage.setItem('user', JSON.stringify({
+        _id: response._id,
+        firstName: response.firstName,
+        lastName: response.lastName,
+        email: response.email,
+        role: response.role,
+        isVerified: response.isVerified,
+      }));
+
+      toast({
+        title: "Succès",
+        description: response.message || "Connexion réussie",
+      });
+
+      // Navigate to dashboard
+      setLocation("/dashboard");
+
+    } catch (error: any) {
+      console.error('Login error:', error);
+      toast({
+        title: "Erreur de connexion",
+        description: error.message || "Identifiants invalides",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

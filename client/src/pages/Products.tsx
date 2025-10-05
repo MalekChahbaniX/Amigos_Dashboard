@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { apiService } from "@/lib/api";
 
 interface Product {
   id: string;
@@ -30,6 +32,7 @@ interface Product {
   price: number;
   stock: number;
   status: "available" | "out_of_stock" | "discontinued";
+  image?: string;
 }
 
 interface ProductsResponse {
@@ -47,9 +50,11 @@ interface CreateProductForm {
   category: string;
   stock: string;
   status: "available" | "out_of_stock" | "discontinued";
+  image: string;
 }
 
 export default function Products() {
+  const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,35 +62,48 @@ export default function Products() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editForm, setEditForm] = useState<CreateProductForm>({
+    name: "",
+    description: "",
+    price: "",
+    category: "",
+    stock: "",
+    status: "available",
+    image: ""
+  });
   const [createForm, setCreateForm] = useState<CreateProductForm>({
     name: "",
     description: "",
     price: "",
     category: "",
     stock: "",
-    status: "available"
+    status: "available",
+    image: ""
   });
 
   const fetchProducts = async (page = 1) => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: "12",
-        ...(searchQuery && { search: searchQuery }),
-        ...(categoryFilter !== "all" && { category: categoryFilter })
-      });
+      const response = await apiService.getProducts(
+        searchQuery || undefined,
+        categoryFilter !== "all" ? categoryFilter : undefined,
+        page,
+        12
+      );
 
-      const response = await fetch(`/api/products?${params}`);
-      if (response.ok) {
-        const data: ProductsResponse = await response.json();
-        setProducts(data.products);
-        setTotalPages(data.totalPages);
-        setCurrentPage(data.page);
-      }
-    } catch (error) {
+      setProducts(response.products);
+      setTotalPages(response.totalPages);
+      setCurrentPage(response.page);
+    } catch (error: any) {
       console.error('Error fetching products:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les produits",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -98,62 +116,95 @@ export default function Products() {
   const handleDeleteProduct = async (productId: string) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) {
       try {
-        const response = await fetch(`/api/products/${productId}`, {
-          method: 'DELETE',
+        await apiService.deleteProduct(productId);
+        toast({
+          title: "Succès",
+          description: "Produit supprimé avec succès",
         });
-
-        if (response.ok) {
-          fetchProducts(currentPage);
-        }
-      } catch (error) {
+        fetchProducts(currentPage);
+      } catch (error: any) {
         console.error('Error deleting product:', error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de supprimer le produit",
+          variant: "destructive",
+        });
       }
     }
   };
 
   const handleCreateProduct = async () => {
     if (!createForm.name || !createForm.price || !createForm.category) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      toast({
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs obligatoires",
+        variant: "destructive",
+      });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const productData = {
+      // For now, use a default provider ID - in a real app, this would come from a provider selection
+      // First, let's check if any providers exist
+      const providersResponse = await apiService.getProviders();
+      if (providersResponse.providers.length === 0) {
+        toast({
+          title: "Erreur",
+          description: "Veuillez d'abord créer un prestataire avant d'ajouter des produits",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const defaultProviderId = providersResponse.providers[0].id;
+      console.log('Creating product for provider ID:', defaultProviderId);
+
+      const response = await apiService.createProduct({
         name: createForm.name,
-        description: createForm.description,
+        description: createForm.description || undefined,
         price: parseFloat(createForm.price),
         category: createForm.category,
         stock: parseInt(createForm.stock) || 0,
         status: createForm.status,
-        providerId: "1" // TODO: Get from selected provider
-      };
-
-      const response = await fetch('/api/products', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(productData),
+        providerId: defaultProviderId,
+        image: createForm.image || undefined,
       });
 
-      if (response.ok) {
-        setIsCreateDialogOpen(false);
-        setCreateForm({
-          name: "",
-          description: "",
-          price: "",
-          category: "",
-          stock: "",
-          status: "available"
-        });
-        fetchProducts(1);
-      } else {
-        alert('Erreur lors de la création du produit');
-      }
-    } catch (error) {
+      console.log('Product created successfully:', response);
+
+      console.log('Product created successfully:', response);
+
+      toast({
+        title: "Succès",
+        description: response.message || "Produit créé avec succès",
+      });
+
+      setIsCreateDialogOpen(false);
+      resetCreateForm();
+      fetchProducts(1);
+    } catch (error: any) {
       console.error('Error creating product:', error);
-      alert('Erreur lors de la création du produit');
+      console.error('Error details:', error.response || error);
+
+      let errorMessage = "Erreur lors de la création du produit";
+
+      if (error.message) {
+        if (error.message.includes('Prestataire non trouvé')) {
+          errorMessage = "Veuillez d'abord créer un prestataire";
+        } else if (error.message.includes('required')) {
+          errorMessage = "Veuillez remplir tous les champs obligatoires";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      toast({
+        title: "Erreur",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -166,8 +217,65 @@ export default function Products() {
       price: "",
       category: "",
       stock: "",
-      status: "available"
+      status: "available",
+      image: ""
     });
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    setEditForm({
+      name: product.name,
+      description: "", // TODO: Get from API when available
+      price: product.price.toString(),
+      category: product.category,
+      stock: product.stock.toString(),
+      status: product.status,
+      image: "" // TODO: Get from API when available
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateProduct = async () => {
+    if (!editingProduct || !editForm.name || !editForm.price || !editForm.category) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs obligatoires",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await apiService.updateProduct(editingProduct.id, {
+        name: editForm.name,
+        description: editForm.description || undefined,
+        price: parseFloat(editForm.price),
+        category: editForm.category,
+        stock: parseInt(editForm.stock) || 0,
+        status: editForm.status,
+        image: editForm.image || undefined,
+      });
+
+      toast({
+        title: "Succès",
+        description: "Produit mis à jour avec succès",
+      });
+
+      setIsEditDialogOpen(false);
+      setEditingProduct(null);
+      fetchProducts(currentPage);
+    } catch (error: any) {
+      console.error('Error updating product:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Erreur lors de la mise à jour du produit",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -263,6 +371,15 @@ export default function Products() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="image">Image URL</Label>
+                <Input
+                  id="image"
+                  value={createForm.image}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, image: e.target.value }))}
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
             </div>
             <div className="flex justify-end gap-2">
               <Button
@@ -276,6 +393,110 @@ export default function Products() {
               </Button>
               <Button onClick={handleCreateProduct} disabled={isSubmitting}>
                 {isSubmitting ? 'Création...' : 'Créer le produit'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Product Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Modifier le produit</DialogTitle>
+              <DialogDescription>
+                Modifier les informations du produit
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-name">Nom du produit *</Label>
+                <Input
+                  id="edit-name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Ex: Pizza Margherita"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Description du produit..."
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-price">Prix (DT) *</Label>
+                  <Input
+                    id="edit-price"
+                    type="number"
+                    step="0.01"
+                    value={editForm.price}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, price: e.target.value }))}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-stock">Stock</Label>
+                  <Input
+                    id="edit-stock"
+                    type="number"
+                    value={editForm.stock}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, stock: e.target.value }))}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-category">Catégorie *</Label>
+                <Select value={editForm.category} onValueChange={(value) => setEditForm(prev => ({ ...prev, category: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner une catégorie" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Restaurant">Restaurant</SelectItem>
+                    <SelectItem value="Supermarché">Supermarché</SelectItem>
+                    <SelectItem value="Pharmacie">Pharmacie</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-status">Statut</Label>
+                <Select value={editForm.status} onValueChange={(value: any) => setEditForm(prev => ({ ...prev, status: value }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="available">Disponible</SelectItem>
+                    <SelectItem value="out_of_stock">Rupture de stock</SelectItem>
+                    <SelectItem value="discontinued">Discontinué</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-image">Image URL</Label>
+                <Input
+                  id="edit-image"
+                  value={editForm.image}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, image: e.target.value }))}
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEditDialogOpen(false);
+                  setEditingProduct(null);
+                }}
+              >
+                Annuler
+              </Button>
+              <Button onClick={handleUpdateProduct} disabled={isSubmitting}>
+                {isSubmitting ? 'Modification...' : 'Modifier le produit'}
               </Button>
             </div>
           </DialogContent>
@@ -312,8 +533,26 @@ export default function Products() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {products.length > 0 ? products.map((product) => (
               <Card key={product.id} className="overflow-hidden" data-testid={`product-card-${product.id}`}>
-                <div className="h-32 bg-muted flex items-center justify-center">
-                  <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                <div className="h-32 bg-muted flex items-center justify-center overflow-hidden">
+                  {product.image ? (
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        const container = target.parentElement;
+                        const fallback = container?.querySelector('.fallback-icon');
+                        if (target && container && fallback) {
+                          target.style.display = 'none';
+                          (fallback as HTMLElement).style.display = 'flex';
+                        }
+                      }}
+                    />
+                  ) : null}
+                  <div className={`fallback-icon h-12 w-12 text-muted-foreground ${product.image ? 'hidden' : 'flex'} items-center justify-center`}>
+                    <ImageIcon className="h-12 w-12" />
+                  </div>
                 </div>
                 <CardContent className="p-4">
                   <div className="space-y-2">
@@ -350,6 +589,7 @@ export default function Products() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
+                          onClick={() => handleEditProduct(product)}
                           data-testid={`button-edit-${product.id}`}
                         >
                           <Pencil className="h-4 w-4" />
