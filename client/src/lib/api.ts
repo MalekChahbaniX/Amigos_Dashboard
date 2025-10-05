@@ -1,6 +1,6 @@
 // API Configuration
 //const API_BASE_URL = 'http://localhost:5000/api';
-const API_BASE_URL = 'https://amigos-backend-ga2t.onrender.com';
+const API_BASE_URL = 'https://amigos-backend-ga2t.onrender.com/api';
 
 interface LoginResponse {
   _id: string;
