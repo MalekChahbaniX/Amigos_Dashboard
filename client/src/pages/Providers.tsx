@@ -28,20 +28,20 @@ import { apiService } from "@/lib/api";
 
 const typeIcons = {
   restaurant: Store,
-  grocery: ShoppingCart,
+  course: ShoppingCart,
   pharmacy: Pill,
 };
 
 const typeLabels = {
   restaurant: "Restaurants",
-  grocery: "Supermarchés",
+  course: "Supermarchés",
   pharmacy: "Pharmacies",
 };
 
 interface Provider {
   id: string;
   name: string;
-  type: "restaurant" | "grocery" | "pharmacy";
+  type: "restaurant" | "course" | "pharmacy";
   category: string;
   phone: string;
   address: string;
@@ -52,7 +52,7 @@ interface Provider {
 
 interface CreateProviderForm {
   name: string;
-  type: "restaurant" | "grocery" | "pharmacy";
+  type: "restaurant" | "course" | "pharmacy";
   phone: string;
   address: string;
   email: string;
@@ -201,7 +201,7 @@ export default function Providers() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="restaurant">Restaurant</SelectItem>
-                    <SelectItem value="grocery">Supermarché</SelectItem>
+                    <SelectItem value="course">Supermarché</SelectItem>
                     <SelectItem value="pharmacy">Pharmacie</SelectItem>
                   </SelectContent>
                 </Select>
@@ -266,7 +266,7 @@ export default function Providers() {
         <TabsList className="grid w-full md:w-auto grid-cols-4 gap-2">
           <TabsTrigger value="all" data-testid="tab-all">Tous</TabsTrigger>
           <TabsTrigger value="restaurant" data-testid="tab-restaurant">Restaurants</TabsTrigger>
-          <TabsTrigger value="grocery" data-testid="tab-grocery">Supermarchés</TabsTrigger>
+          <TabsTrigger value="course" data-testid="tab-course">Supermarchés</TabsTrigger>
           <TabsTrigger value="pharmacy" data-testid="tab-pharmacy">Pharmacies</TabsTrigger>
         </TabsList>
 
@@ -287,7 +287,7 @@ export default function Providers() {
             <CardContent>
               <div className="space-y-3">
                 {providers && providers.length > 0 ? providers.map((provider) => {
-                  const Icon = typeIcons[provider.type as keyof typeof typeIcons];
+                  const Icon = typeIcons[provider.type as keyof typeof typeIcons] || Store; // Default to Store icon
                   return (
                     <div
                       key={provider.id}

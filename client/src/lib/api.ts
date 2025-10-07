@@ -295,7 +295,7 @@ class ApiService {
     providers: Array<{
       id: string;
       name: string;
-      type: "restaurant" | "grocery" | "pharmacy";
+      type: "restaurant" | "course" | "pharmacy";
       category: string;
       phone: string;
       address: string;
@@ -333,7 +333,7 @@ class ApiService {
 
   async createProvider(providerData: {
     name: string;
-    type: "restaurant" | "grocery" | "pharmacy";
+    type: "restaurant" | "course" | "pharmacy";
     phone: string;
     address: string;
     email?: string;
@@ -343,7 +343,7 @@ class ApiService {
     provider: {
       id: string;
       name: string;
-      type: "restaurant" | "grocery" | "pharmacy";
+      type: "restaurant" | "course" | "pharmacy";
       category: string;
       phone: string;
       address: string;

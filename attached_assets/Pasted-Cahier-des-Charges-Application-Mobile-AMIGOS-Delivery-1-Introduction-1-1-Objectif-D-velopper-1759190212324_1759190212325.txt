@@ -42,7 +42,7 @@ o	Pharmacie
 •	Panier: Ajouter des produits avec +/-, bouton "Finaliser votre commande".
 •	Confirmation: Résumé du panier, adresse de livraison (carte), et options de paiement.
 •	Gestion livreur: Assignation à un superAdmin pour la livraison.
-2.4.2 Courses (Grocery Delivery)
+2.4.2 Courses (course Delivery)
 •	Procedure:
 o	Sélectionner "Courses" pour voir les magasins.
 o	Parcourir les produits (légumes, produits laitiers) avec images et prix.
