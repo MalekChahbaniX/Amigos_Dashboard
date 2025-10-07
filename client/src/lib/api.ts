@@ -1,6 +1,5 @@
 // API Configuration
-//const API_BASE_URL = 'http://localhost:5000/api';
-const API_BASE_URL = 'https://amigos-backend-ga2t.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://amigos-backend-ga2t.onrender.com/api';
 
 interface LoginResponse {
   _id: string;
@@ -312,7 +311,17 @@ class ApiService {
     // Add cache-busting timestamp to prevent 304 responses
     params.append('_t', Date.now().toString());
 
-    return this.request(`/providers?${params}`);
+    try {
+      const response = await this.request<any>(`/providers?${params}`);
+      // Ensure we return the expected structure even if API returns different format
+      return {
+        providers: Array.isArray(response?.providers) ? response.providers : []
+      };
+    } catch (error) {
+      console.error('Error in getProviders:', error);
+      // Return empty structure on error to prevent crashes
+      return { providers: [] };
+    }
   }
 
   async getProviderById(id: string): Promise<{

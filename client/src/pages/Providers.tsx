@@ -25,64 +25,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiService } from "@/lib/api";
 
-// TODO: Remove mock data
-const providers = [
-  { 
-    id: "1", 
-    name: "Pizza House", 
-    type: "restaurant" as const,
-    category: "Fast Food",
-    phone: "+216 71 123 456",
-    address: "25 Avenue Habib Bourguiba, Tunis",
-    totalOrders: 234, 
-    rating: 4.5,
-    status: "active" as const
-  },
-  { 
-    id: "2", 
-    name: "Carrefour Express", 
-    type: "grocery" as const,
-    category: "Supermarché",
-    phone: "+216 71 234 567",
-    address: "10 Rue de Marseille, Tunis",
-    totalOrders: 567, 
-    rating: 4.2,
-    status: "active" as const
-  },
-  { 
-    id: "3", 
-    name: "Pharmacie Centrale", 
-    type: "pharmacy" as const,
-    category: "Pharmacie",
-    phone: "+216 71 345 678",
-    address: "5 Avenue de Paris, Tunis",
-    totalOrders: 123, 
-    rating: 4.8,
-    status: "active" as const
-  },
-  { 
-    id: "4", 
-    name: "Burger King", 
-    type: "restaurant" as const,
-    category: "Fast Food",
-    phone: "+216 71 456 789",
-    address: "15 Avenue Mohamed V, Tunis",
-    totalOrders: 445, 
-    rating: 4.3,
-    status: "active" as const
-  },
-  { 
-    id: "5", 
-    name: "Monoprix", 
-    type: "grocery" as const,
-    category: "Supermarché",
-    phone: "+216 71 567 890",
-    address: "20 Rue de Rome, Tunis",
-    totalOrders: 389, 
-    rating: 4.1,
-    status: "inactive" as const
-  },
-];
 
 const typeIcons = {
   restaurant: Store,
@@ -145,9 +87,11 @@ export default function Providers() {
         activeTab !== "all" ? activeTab : undefined,
         searchQuery || undefined
       );
-      setProviders(response.providers);
+      // Ensure we have a valid response with providers array
+      setProviders(response?.providers || []);
     } catch (error: any) {
       console.error('Error fetching providers:', error);
+      setProviders([]); // Set empty array on error
       toast({
         title: "Erreur",
         description: "Impossible de charger les prestataires",
@@ -342,7 +286,7 @@ export default function Providers() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {(providers && providers.length > 0) ? providers.map((provider) => {
+                {providers && providers.length > 0 ? providers.map((provider) => {
                   const Icon = typeIcons[provider.type as keyof typeof typeIcons];
                   return (
                     <div
@@ -355,25 +299,25 @@ export default function Providers() {
                           <Icon className="h-6 w-6 text-primary" />
                         </div>
                         <div>
-                          <p className="font-medium">{provider.name}</p>
-                          <p className="text-sm text-muted-foreground">{provider.category}</p>
-                          <p className="text-sm text-muted-foreground">{provider.address}</p>
+                          <p className="font-medium">{provider.name || 'Nom non disponible'}</p>
+                          <p className="text-sm text-muted-foreground">{provider.category || 'Catégorie non disponible'}</p>
+                          <p className="text-sm text-muted-foreground">{provider.address || 'Adresse non disponible'}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-6">
                         <div className="text-center">
                           <p className="text-sm text-muted-foreground">Type</p>
                           <Badge variant="secondary">
-                            {typeLabels[provider.type as keyof typeof typeLabels]}
+                            {typeLabels[provider.type as keyof typeof typeLabels] || 'Type inconnu'}
                           </Badge>
                         </div>
                         <div className="text-center">
                           <p className="text-sm text-muted-foreground">Commandes</p>
-                          <p className="text-lg font-semibold">{provider.totalOrders}</p>
+                          <p className="text-lg font-semibold">{provider.totalOrders || 0}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-sm text-muted-foreground">Note</p>
-                          <p className="text-lg font-semibold">{provider.rating} ⭐</p>
+                          <p className="text-lg font-semibold">{provider.rating ? `${provider.rating} ⭐` : 'N/A'}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-sm text-muted-foreground">Statut</p>
