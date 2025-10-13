@@ -126,34 +126,36 @@ export default function Orders() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold">Gestion des commandes</h1>
-          <p className="text-muted-foreground">Gérez et suivez toutes les commandes</p>
-        </div>
-        <Button data-testid="button-export">
-          <Download className="h-4 w-4 mr-2" />
-          Exporter
-        </Button>
-      </div>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 xs:px-6 sm:px-8 py-4 xs:py-6 sm:py-8">
+        <div className="space-y-4 xs:space-y-6 sm:space-y-8">
+          <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-3 xs:gap-4 sm:gap-6">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl xs:text-2xl sm:text-3xl lg:text-4xl font-semibold leading-tight">Gestion des commandes</h1>
+              <p className="text-sm xs:text-base text-muted-foreground mt-1">Gérez et suivez toutes les commandes</p>
+            </div>
+            <Button data-testid="button-export" className="w-full xs:w-auto min-h-[44px] xs:min-h-[40px] text-sm xs:text-base">
+              <Download className="h-3 w-3 xs:h-4 xs:w-4 mr-2" />
+              Exporter
+            </Button>
+          </div>
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col xs:flex-row gap-3 xs:gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Rechercher par N° commande ou client..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="pl-9 min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
                 data-testid="input-search-orders"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-[200px]" data-testid="select-status-filter">
-                <Filter className="h-4 w-4 mr-2" />
+              <SelectTrigger className="w-full xs:w-[200px] sm:w-[220px] min-h-[44px] xs:min-h-[40px] text-sm xs:text-base" data-testid="select-status-filter">
+                <Filter className="h-3 w-3 xs:h-4 xs:w-4 mr-2" />
                 <SelectValue placeholder="Filtrer par statut" />
               </SelectTrigger>
               <SelectContent>
@@ -173,34 +175,37 @@ export default function Orders() {
             {orders.length > 0 ? orders.map((order) => (
               <div
                 key={order.id}
-                className="flex items-center justify-between p-4 rounded-lg border hover-elevate"
+                className="flex flex-col xs:flex-row xs:items-center xs:justify-between p-3 xs:p-4 sm:p-5 rounded-lg border hover-elevate gap-3 xs:gap-4 transition-all duration-200"
                 data-testid={`order-row-${order.id}`}
               >
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="flex flex-col gap-1 min-w-[100px]">
-                    <span className="font-mono font-medium">{order.orderNumber}</span>
+                <div className="flex items-start xs:items-center gap-3 xs:gap-4 flex-1">
+                  <div className="flex flex-col gap-1 min-w-[80px] xs:min-w-[100px]">
+                    <span className="font-mono font-medium text-sm xs:text-base">{order.orderNumber}</span>
                     <span className="text-xs text-muted-foreground">{order.date}</span>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="font-medium">{order.client}</span>
-                    <span className="text-sm text-muted-foreground">{order.provider}</span>
+                  <div className="flex flex-col gap-1 min-w-0 flex-1">
+                    <span className="font-medium text-sm xs:text-base truncate">{order.client}</span>
+                    <span className="text-xs xs:text-sm text-muted-foreground truncate">{order.provider}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <div className="font-semibold">{order.total}</div>
+                <div className="flex items-center justify-between xs:justify-end gap-3 xs:gap-4 w-full xs:w-auto">
+                  <div className="text-center xs:text-right">
+                    <div className="font-semibold text-sm xs:text-base">{order.total}</div>
                     {order.deliverer && (
-                      <div className="text-xs text-muted-foreground">{order.deliverer}</div>
+                      <div className="text-xs text-muted-foreground truncate max-w-[100px] xs:max-w-none">{order.deliverer}</div>
                     )}
                   </div>
-                  <OrderStatusBadge status={order.status} />
+                  <div className="flex-shrink-0">
+                    <OrderStatusBadge status={order.status} />
+                  </div>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => setSelectedOrder(order)}
+                    className="h-8 w-8 xs:h-9 xs:w-9 sm:h-10 sm:w-10 flex-shrink-0 touch-manipulation"
                     data-testid={`button-view-${order.id}`}
                   >
-                    <Eye className="h-4 w-4" />
+                    <Eye className="h-3 w-3 xs:h-3.5 xs:w-3.5 sm:h-4 sm:w-4" />
                   </Button>
                 </div>
               </div>
@@ -210,90 +215,96 @@ export default function Orders() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex justify-center gap-2 mt-4">
-              <Button
-                variant="outline"
-                onClick={() => fetchOrders(currentPage - 1)}
-                disabled={currentPage <= 1}
-              >
-                Précédent
-              </Button>
-              <span className="flex items-center px-3">
+            <div className="flex flex-col xs:flex-row justify-center items-center gap-2 xs:gap-4 mt-4 xs:mt-6">
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchOrders(currentPage - 1)}
+                  disabled={currentPage <= 1}
+                  className="px-3 py-2 min-h-[36px] xs:min-h-[40px] text-sm"
+                >
+                  Précédent
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchOrders(currentPage + 1)}
+                  disabled={currentPage >= totalPages}
+                  className="px-3 py-2 min-h-[36px] xs:min-h-[40px] text-sm"
+                >
+                  Suivant
+                </Button>
+              </div>
+              <span className="flex items-center px-3 text-sm text-muted-foreground">
                 Page {currentPage} sur {totalPages}
               </span>
-              <Button
-                variant="outline"
-                onClick={() => fetchOrders(currentPage + 1)}
-                disabled={currentPage >= totalPages}
-              >
-                Suivant
-              </Button>
             </div>
           )}
         </CardContent>
       </Card>
 
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Détails de la commande {selectedOrder?.id}</DialogTitle>
-            <DialogDescription>Informations complètes de la commande</DialogDescription>
+        <DialogContent className="w-[95vw] xs:w-[90vw] sm:max-w-2xl max-h-[85vh] xs:max-h-[90vh] overflow-y-auto mx-4 xs:mx-auto">
+          <DialogHeader className="space-y-2 xs:space-y-3 pb-2">
+            <DialogTitle className="text-lg xs:text-xl sm:text-2xl leading-tight">Détails de la commande {selectedOrder?.id}</DialogTitle>
+            <DialogDescription className="text-sm xs:text-base">Informations complètes de la commande</DialogDescription>
           </DialogHeader>
           {selectedOrder && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Client</p>
-                  <p className="font-medium">{selectedOrder.client}</p>
-                  <p className="text-sm text-muted-foreground">{selectedOrder.phone}</p>
+            <div className="space-y-4 xs:space-y-6">
+              <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 xs:gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs xs:text-sm text-muted-foreground font-medium">Client</p>
+                  <p className="font-medium text-sm xs:text-base">{selectedOrder.client}</p>
+                  <p className="text-xs xs:text-sm text-muted-foreground">{selectedOrder.phone}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Statut</p>
+                <div className="space-y-1">
+                  <p className="text-xs xs:text-sm text-muted-foreground font-medium">Statut</p>
                   <div className="mt-1">
                     <OrderStatusBadge status={selectedOrder.status} />
                   </div>
                 </div>
-                <div className="col-span-2">
-                  <p className="text-sm text-muted-foreground">Adresse de livraison</p>
-                  <p className="font-medium">{selectedOrder.address}</p>
+                <div className="col-span-1 xs:col-span-2 space-y-1">
+                  <p className="text-xs xs:text-sm text-muted-foreground font-medium">Adresse de livraison</p>
+                  <p className="font-medium text-sm xs:text-base leading-relaxed">{selectedOrder.address}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Prestataire</p>
-                  <p className="font-medium">{selectedOrder.provider}</p>
+                <div className="space-y-1">
+                  <p className="text-xs xs:text-sm text-muted-foreground font-medium">Prestataire</p>
+                  <p className="font-medium text-sm xs:text-base">{selectedOrder.provider}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Livreur</p>
-                  <p className="font-medium">{selectedOrder.deliverer || "Non assigné"}</p>
+                <div className="space-y-1">
+                  <p className="text-xs xs:text-sm text-muted-foreground font-medium">Livreur</p>
+                  <p className="font-medium text-sm xs:text-base">{selectedOrder.deliverer || "Non assigné"}</p>
                 </div>
               </div>
 
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">Articles commandés</p>
-                <div className="space-y-2">
+              <div className="space-y-2 xs:space-y-3">
+                <p className="text-sm xs:text-base text-muted-foreground font-medium">Articles commandés</p>
+                <div className="space-y-2 xs:space-y-3">
                   {selectedOrder.items && selectedOrder.items.length > 0 ? selectedOrder.items.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center p-2 rounded-lg bg-muted/30">
-                      <div>
-                        <p className="font-medium">{item.name}</p>
-                        <p className="text-sm text-muted-foreground">Quantité: {item.quantity}</p>
+                    <div key={index} className="flex justify-between items-center p-3 xs:p-4 rounded-lg bg-muted/30 gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm xs:text-base truncate">{item.name}</p>
+                        <p className="text-xs xs:text-sm text-muted-foreground">Quantité: {item.quantity}</p>
                       </div>
-                      <p className="font-semibold">{item.price} DT</p>
+                      <p className="font-semibold text-sm xs:text-base flex-shrink-0">{item.price} DT</p>
                     </div>
                   )) : (
-                    <p className="text-muted-foreground text-center py-2">Aucun article trouvé</p>
+                    <p className="text-muted-foreground text-center py-4 xs:py-6 text-sm xs:text-base">Aucun article trouvé</p>
                   )}
                 </div>
               </div>
 
-              <div className="flex justify-between items-center pt-4 border-t">
-                <p className="text-lg font-semibold">Total</p>
-                <p className="text-2xl font-bold text-primary">{selectedOrder.total}</p>
+              <div className="flex justify-between items-center pt-4 xs:pt-6 border-t">
+                <p className="text-base xs:text-lg sm:text-xl font-semibold">Total</p>
+                <p className="text-xl xs:text-2xl sm:text-3xl font-bold text-primary">{selectedOrder.total}</p>
               </div>
 
-              <div className="flex gap-2">
-                <Button className="flex-1" data-testid="button-update-status">
+              <div className="flex flex-col xs:flex-row gap-2 xs:gap-3 pt-4 xs:pt-6">
+                <Button className="flex-1 min-h-[44px] xs:min-h-[40px] text-sm xs:text-base touch-manipulation" data-testid="button-update-status">
                   Mettre à jour le statut
                 </Button>
-                <Button variant="outline" data-testid="button-assign-deliverer">
+                <Button variant="outline" className="flex-1 xs:flex-none xs:w-auto min-h-[44px] xs:min-h-[40px] text-sm xs:text-base touch-manipulation" data-testid="button-assign-deliverer">
                   Assigner un livreur
                 </Button>
               </div>
@@ -301,6 +312,8 @@ export default function Orders() {
           )}
         </DialogContent>
       </Dialog>
+        </div>
+      </div>
     </div>
   );
 }

@@ -166,9 +166,9 @@ export default function Deliverers() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold">Gestion des livreurs</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold">Gestion des livreurs</h1>
           <p className="text-muted-foreground">Gérez votre équipe de livraison</p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -178,14 +178,14 @@ export default function Deliverers() {
               Nouveau livreur
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Nouveau livreur</DialogTitle>
+              <DialogTitle className="text-lg sm:text-xl">Nouveau livreur</DialogTitle>
               <DialogDescription>
                 Ajouter un nouveau livreur à l'équipe
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-3 sm:gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="deliverer-name">Nom complet *</Label>
                 <Input
@@ -223,17 +223,22 @@ export default function Deliverers() {
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
                   setIsCreateDialogOpen(false);
                   resetCreateForm();
                 }}
+                className="w-full sm:w-auto"
               >
                 Annuler
               </Button>
-              <Button onClick={handleCreateDeliverer} disabled={isSubmitting}>
+              <Button
+                onClick={handleCreateDeliverer}
+                disabled={isSubmitting}
+                className="w-full sm:w-auto"
+              >
                 {isSubmitting ? 'Création...' : 'Créer le livreur'}
               </Button>
             </div>
@@ -241,7 +246,7 @@ export default function Deliverers() {
         </Dialog>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -297,47 +302,49 @@ export default function Deliverers() {
             {deliverers.length > 0 ? deliverers.map((deliverer) => (
               <div
                 key={deliverer.id}
-                className="flex items-center justify-between p-4 rounded-lg border hover-elevate"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg border hover-elevate gap-4"
                 data-testid={`deliverer-row-${deliverer.id}`}
               >
-                <div className="flex items-center gap-4">
-                  <Avatar>
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <Avatar className="flex-shrink-0">
                     <AvatarFallback className="bg-primary/10 text-primary">
                       {deliverer.name.split(' ').map((n: string) => n[0]).join('')}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <p className="font-medium">{deliverer.name}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate">{deliverer.name}</p>
                     <p className="text-sm text-muted-foreground">{deliverer.phone}</p>
-                    <div className="flex items-center gap-3 mt-1">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1">
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {deliverer.location}
+                        <MapPin className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{deliverer.location}</span>
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground truncate">
                         {deliverer.vehicle}
                       </span>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-6">
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground">En cours</p>
-                    <div className="flex items-center gap-1">
-                      <Package className="h-4 w-4 text-primary" />
-                      <p className="text-lg font-semibold">{deliverer.currentOrders}</p>
+                <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6">
+                  <div className="flex items-center gap-4 sm:gap-6">
+                    <div className="text-center">
+                      <p className="text-xs sm:text-sm text-muted-foreground">En cours</p>
+                      <div className="flex items-center gap-1 justify-center">
+                        <Package className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
+                        <p className="text-base sm:text-lg font-semibold">{deliverer.currentOrders}</p>
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs sm:text-sm text-muted-foreground">Livraisons</p>
+                      <p className="text-base sm:text-lg font-semibold">{deliverer.totalDeliveries}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs sm:text-sm text-muted-foreground">Note</p>
+                      <p className="text-base sm:text-lg font-semibold">{deliverer.rating} ⭐</p>
                     </div>
                   </div>
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Livraisons</p>
-                    <p className="text-lg font-semibold">{deliverer.totalDeliveries}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Note</p>
-                    <p className="text-lg font-semibold">{deliverer.rating} ⭐</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 justify-center sm:justify-start">
+                    <span className="text-xs sm:text-sm text-muted-foreground">
                       {delivererStates[deliverer.id] ? 'Actif' : 'Inactif'}
                     </span>
                     <Switch
@@ -354,24 +361,30 @@ export default function Deliverers() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex justify-center gap-2 mt-4">
-              <Button
-                variant="outline"
-                onClick={() => fetchDeliverers(currentPage - 1)}
-                disabled={currentPage <= 1}
-              >
-                Précédent
-              </Button>
-              <span className="flex items-center px-3">
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-4 mt-4">
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchDeliverers(currentPage - 1)}
+                  disabled={currentPage <= 1}
+                  className="px-3 py-2"
+                >
+                  Précédent
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchDeliverers(currentPage + 1)}
+                  disabled={currentPage >= totalPages}
+                  className="px-3 py-2"
+                >
+                  Suivant
+                </Button>
+              </div>
+              <span className="flex items-center px-3 text-sm text-muted-foreground">
                 Page {currentPage} sur {totalPages}
               </span>
-              <Button
-                variant="outline"
-                onClick={() => fetchDeliverers(currentPage + 1)}
-                disabled={currentPage >= totalPages}
-              >
-                Suivant
-              </Button>
             </div>
           )}
         </CardContent>

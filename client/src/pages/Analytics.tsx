@@ -95,27 +95,29 @@ export default function Analytics() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold">Analytiques</h1>
-          <p className="text-muted-foreground">Insights et métriques de performance</p>
-        </div>
-        <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7">7 derniers jours</SelectItem>
-            <SelectItem value="30">30 derniers jours</SelectItem>
-            <SelectItem value="90">3 derniers mois</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 xs:px-6 sm:px-8 py-4 xs:py-6 sm:py-8">
+        <div className="space-y-4 xs:space-y-6 sm:space-y-8">
+          <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-3 xs:gap-4 sm:gap-6">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl xs:text-2xl sm:text-3xl lg:text-4xl font-semibold leading-tight">Analytiques</h1>
+              <p className="text-sm xs:text-base text-muted-foreground mt-1">Insights et métriques de performance</p>
+            </div>
+            <Select value={period} onValueChange={setPeriod}>
+              <SelectTrigger className="w-full xs:w-[180px] sm:w-[200px] min-h-[44px] xs:min-h-[40px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">7 derniers jours</SelectItem>
+                <SelectItem value="30">30 derniers jours</SelectItem>
+                <SelectItem value="90">3 derniers mois</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
       {/* Overview Cards */}
       {overviewData && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 xs:gap-4 sm:gap-6 grid-cols-1 xs:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Clients actifs</CardTitle>
@@ -171,18 +173,18 @@ export default function Analytics() {
       )}
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
-          <TabsTrigger value="revenue">Revenus</TabsTrigger>
-          <TabsTrigger value="products">Produits</TabsTrigger>
-          <TabsTrigger value="users">Utilisateurs</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 xs:grid-cols-4 gap-1 xs:gap-2 h-auto p-1">
+          <TabsTrigger value="overview" className="text-xs xs:text-sm sm:text-base px-2 xs:px-3 sm:px-4 py-2 xs:py-2.5 sm:py-3 min-h-[36px] xs:min-h-[40px]">Vue d'ensemble</TabsTrigger>
+          <TabsTrigger value="revenue" className="text-xs xs:text-sm sm:text-base px-2 xs:px-3 sm:px-4 py-2 xs:py-2.5 sm:py-3 min-h-[36px] xs:min-h-[40px]">Revenus</TabsTrigger>
+          <TabsTrigger value="products" className="text-xs xs:text-sm sm:text-base px-2 xs:px-3 sm:px-4 py-2 xs:py-2.5 sm:py-3 min-h-[36px] xs:min-h-[40px]">Produits</TabsTrigger>
+          <TabsTrigger value="users" className="text-xs xs:text-sm sm:text-base px-2 xs:px-3 sm:px-4 py-2 xs:py-2.5 sm:py-3 min-h-[36px] xs:min-h-[40px]">Utilisateurs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
           {overviewData && (
             <>
               {/* Charts Section */}
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 xs:gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
                 <Card>
                   <CardHeader>
                     <CardTitle>Commandes quotidiennes</CardTitle>
@@ -234,7 +236,7 @@ export default function Analytics() {
                   <CardDescription>Distribution des prestataires par catégorie</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-4 md:grid-cols-3">
+                  <div className="grid gap-3 xs:gap-4 sm:gap-6 grid-cols-1 xs:grid-cols-2 sm:grid-cols-3">
                     {overviewData.insights.providerTypes.map((type) => (
                       <div key={type._id} className="text-center">
                         <div className="text-2xl font-bold">{type.count}</div>
@@ -251,7 +253,7 @@ export default function Analytics() {
         <TabsContent value="revenue" className="space-y-4">
           {revenueData && (
             <>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-3 xs:gap-4 sm:gap-6 grid-cols-1 xs:grid-cols-2 lg:grid-cols-3">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Revenus totaux</CardTitle>
@@ -319,7 +321,7 @@ export default function Analytics() {
         <TabsContent value="products" className="space-y-4">
           {overviewData && (
             <>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 xs:gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
                 <Card>
                   <CardHeader>
                     <CardTitle>Produits populaires</CardTitle>
@@ -400,6 +402,8 @@ export default function Analytics() {
           )}
         </TabsContent>
       </Tabs>
+        </div>
+      </div>
     </div>
   );
 }

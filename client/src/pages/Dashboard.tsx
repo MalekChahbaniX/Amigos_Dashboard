@@ -105,43 +105,46 @@ export default function Dashboard() {
     return <div className="flex items-center justify-center h-64">Chargement...</div>;
   }
   return (
-    <div className="space-y-6">
-      {/* Header with user info and logout */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold">Dashboard</h1>
-          <p className="text-muted-foreground">Vue d'ensemble de votre activité</p>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 px-4 py-2 bg-muted rounded-lg">
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <User className="h-4 w-4 text-primary" />
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 xs:px-6 sm:px-8 py-4 xs:py-6 sm:py-8">
+        <div className="space-y-4 xs:space-y-6 sm:space-y-8">
+          {/* Header with user info and logout */}
+          <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-3 xs:gap-4 sm:gap-6">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl xs:text-2xl sm:text-3xl lg:text-4xl font-semibold leading-tight">Dashboard</h1>
+              <p className="text-sm xs:text-base text-muted-foreground mt-1">Vue d'ensemble de votre activité</p>
             </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium">
-                {currentUser.firstName} {currentUser.lastName}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                Super Administrateur
-              </span>
+
+            <div className="flex items-center gap-2 xs:gap-3 sm:gap-4 w-full xs:w-auto">
+              <div className="flex items-center gap-2 xs:gap-3 px-3 xs:px-4 py-2 bg-muted rounded-lg min-w-0 flex-1 xs:flex-none">
+                <div className="h-7 w-7 xs:h-8 xs:w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <User className="h-3 w-3 xs:h-4 xs:w-4 text-primary" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs xs:text-sm font-medium truncate">
+                    {currentUser.firstName} {currentUser.lastName}
+                  </span>
+                  <span className="text-xs text-muted-foreground truncate">
+                    Super Administrateur
+                  </span>
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="flex items-center gap-2 min-h-[36px] xs:min-h-[40px] text-xs xs:text-sm px-3 xs:px-4 flex-shrink-0"
+              >
+                <LogOut className="h-3 w-3 xs:h-4 xs:w-4" />
+                <span className="hidden xs:inline">{isLoggingOut ? "Déconnexion..." : "Déconnexion"}</span>
+                <span className="xs:hidden">{isLoggingOut ? "..." : "Déconnexion"}</span>
+              </Button>
             </div>
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className="flex items-center gap-2"
-          >
-            <LogOut className="h-4 w-4" />
-            {isLoggingOut ? "Déconnexion..." : "Déconnexion"}
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 xs:gap-4 sm:gap-6 grid-cols-1 xs:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Commandes aujourd'hui"
           value={stats?.todayOrders?.toString() || "0"}
@@ -168,7 +171,7 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+      <div className="grid gap-3 xs:gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-7">
         <Card className="lg:col-span-4">
           <CardHeader>
             <CardTitle>Commandes récentes</CardTitle>
@@ -179,24 +182,26 @@ export default function Dashboard() {
               {recentOrders.length > 0 ? recentOrders.map((order) => (
                 <div
                   key={order.id}
-                  className="flex items-center justify-between p-3 rounded-lg hover-elevate"
+                  className="flex flex-col xs:flex-row xs:items-center xs:justify-between p-3 xs:p-4 rounded-lg hover-elevate gap-3 xs:gap-4"
                   data-testid={`order-${order.id}`}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="flex flex-col">
-                      <span className="font-medium font-mono text-sm">{order.id}</span>
-                      <span className="text-sm text-muted-foreground">{order.client}</span>
+                  <div className="flex items-start xs:items-center gap-3 xs:gap-4 flex-1">
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium font-mono text-sm xs:text-base truncate">{order.id}</span>
+                      <span className="text-xs xs:text-sm text-muted-foreground truncate">{order.client}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="font-semibold">{order.total}</div>
-                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <div className="flex items-center justify-between xs:justify-end gap-3 xs:gap-4 w-full xs:w-auto">
+                    <div className="text-center xs:text-right">
+                      <div className="font-semibold text-sm xs:text-base">{order.total}</div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-1 justify-center xs:justify-end">
                         <Clock className="h-3 w-3" />
-                        {order.time}
+                        <span className="truncate">{order.time}</span>
                       </div>
                     </div>
-                    <OrderStatusBadge status={order.status} />
+                    <div className="flex-shrink-0">
+                      <OrderStatusBadge status={order.status} />
+                    </div>
                   </div>
                 </div>
               )) : (
@@ -219,23 +224,23 @@ export default function Dashboard() {
               {activeDeliverers.length > 0 ? activeDeliverers.map((deliverer) => (
                 <div
                   key={deliverer.id}
-                  className="flex items-center justify-between p-3 rounded-lg hover-elevate"
+                  className="flex items-center justify-between p-3 xs:p-4 rounded-lg hover-elevate gap-3 xs:gap-4"
                   data-testid={`deliverer-${deliverer.id}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
-                      <span className="text-primary font-medium text-sm">
+                  <div className="flex items-center gap-3 xs:gap-4 min-w-0 flex-1">
+                    <div className="h-8 w-8 xs:h-9 xs:w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-primary font-medium text-xs xs:text-sm">
                         {deliverer.name.split(' ').map(n => n[0]).join('')}
                       </span>
                     </div>
-                    <div>
-                      <p className="font-medium text-sm">{deliverer.name}</p>
-                      <p className="text-xs text-muted-foreground">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm xs:text-base truncate">{deliverer.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
                         {deliverer.orders} {deliverer.orders > 1 ? 'commandes' : 'commande'}
                       </p>
                     </div>
                   </div>
-                  <Badge variant="secondary" className="bg-chart-2/10 text-chart-2">
+                  <Badge variant="secondary" className="bg-chart-2/10 text-chart-2 text-xs xs:text-sm flex-shrink-0">
                     Actif
                   </Badge>
                 </div>
@@ -258,25 +263,27 @@ export default function Dashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Commandes totales</p>
-              <p className="text-2xl font-semibold">856</p>
+          <div className="grid gap-3 xs:gap-4 sm:gap-6 grid-cols-1 xs:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-1 xs:space-y-2 text-center xs:text-left">
+              <p className="text-xs xs:text-sm text-muted-foreground font-medium">Commandes totales</p>
+              <p className="text-xl xs:text-2xl sm:text-3xl font-semibold">856</p>
               <p className="text-xs text-chart-2">+18% vs semaine dernière</p>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Revenu total</p>
-              <p className="text-2xl font-semibold">38,420 DT</p>
+            <div className="space-y-1 xs:space-y-2 text-center xs:text-left">
+              <p className="text-xs xs:text-sm text-muted-foreground font-medium">Revenu total</p>
+              <p className="text-xl xs:text-2xl sm:text-3xl font-semibold">38,420 DT</p>
               <p className="text-xs text-chart-2">+22% vs semaine dernière</p>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Temps moyen de livraison</p>
-              <p className="text-2xl font-semibold">28 min</p>
+            <div className="space-y-1 xs:space-y-2 text-center xs:text-left col-span-1 xs:col-span-2 lg:col-span-1">
+              <p className="text-xs xs:text-sm text-muted-foreground font-medium">Temps moyen de livraison</p>
+              <p className="text-xl xs:text-2xl sm:text-3xl font-semibold">28 min</p>
               <p className="text-xs text-chart-2">-5% vs semaine dernière</p>
             </div>
           </div>
         </CardContent>
       </Card>
+        </div>
+      </div>
     </div>
   );
 }

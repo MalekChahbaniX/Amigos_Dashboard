@@ -139,9 +139,9 @@ export default function Clients() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold">Gestion des clients</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold">Gestion des clients</h1>
           <p className="text-muted-foreground">Gérez votre base de clients</p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -151,14 +151,14 @@ export default function Clients() {
               Nouveau client
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Nouveau client</DialogTitle>
+              <DialogTitle className="text-lg sm:text-xl">Nouveau client</DialogTitle>
               <DialogDescription>
                 Ajouter un nouveau client à la base de données
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-3 sm:gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="client-name">Nom complet *</Label>
                 <Input
@@ -197,17 +197,22 @@ export default function Clients() {
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
                   setIsCreateDialogOpen(false);
                   resetCreateForm();
                 }}
+                className="w-full sm:w-auto"
               >
                 Annuler
               </Button>
-              <Button onClick={handleCreateClient} disabled={isSubmitting}>
+              <Button
+                onClick={handleCreateClient}
+                disabled={isSubmitting}
+                className="w-full sm:w-auto"
+              >
                 {isSubmitting ? 'Création...' : 'Créer le client'}
               </Button>
             </div>
@@ -233,59 +238,63 @@ export default function Clients() {
             {clients.length > 0 ? clients.map((client) => (
               <div
                 key={client.id}
-                className="flex items-center justify-between p-4 rounded-lg border hover-elevate"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg border hover-elevate gap-4"
                 data-testid={`client-row-${client.id}`}
               >
-                <div className="flex items-center gap-4">
-                  <Avatar>
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <Avatar className="flex-shrink-0">
                     <AvatarFallback className="bg-primary/10 text-primary">
                       {client.name.split(' ').map((n: string) => n[0]).join('')}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <p className="font-medium">{client.name}</p>
-                    <p className="text-sm text-muted-foreground">{client.email}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate">{client.name}</p>
+                    <p className="text-sm text-muted-foreground truncate">{client.email}</p>
                     <p className="text-sm text-muted-foreground">{client.phone}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-6">
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Commandes</p>
-                    <p className="text-lg font-semibold">{client.totalOrders}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Total dépensé</p>
-                    <p className="text-lg font-semibold">{client.totalSpent}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Statut</p>
-                    <Badge
-                      variant="secondary"
-                      className={client.status === 'active'
-                        ? 'bg-chart-2/10 text-chart-2'
-                        : 'bg-muted text-muted-foreground'
-                      }
-                    >
-                      {client.status === 'active' ? 'Actif' : 'Inactif'}
-                    </Badge>
+                <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6">
+                  <div className="flex items-center gap-4 sm:gap-6">
+                    <div className="text-center">
+                      <p className="text-xs sm:text-sm text-muted-foreground">Commandes</p>
+                      <p className="text-base sm:text-lg font-semibold">{client.totalOrders}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs sm:text-sm text-muted-foreground">Total dépensé</p>
+                      <p className="text-base sm:text-lg font-semibold">{client.totalSpent}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs sm:text-sm text-muted-foreground">Statut</p>
+                      <Badge
+                        variant="secondary"
+                        className={`text-xs ${client.status === 'active'
+                          ? 'bg-chart-2/10 text-chart-2'
+                          : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {client.status === 'active' ? 'Actif' : 'Inactif'}
+                      </Badge>
+                    </div>
                   </div>
                   <div className="flex gap-1">
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-8 w-8 sm:h-10 sm:w-10"
                       data-testid={`button-view-${client.id}`}
                     >
-                      <Eye className="h-4 w-4" />
+                      <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-8 w-8 sm:h-10 sm:w-10"
                       data-testid={`button-toggle-status-${client.id}`}
                     >
                       {client.status === 'active' ? (
-                        <Ban className="h-4 w-4 text-destructive" />
+                        <Ban className="h-3 w-3 sm:h-4 sm:w-4 text-destructive" />
                       ) : (
-                        <Check className="h-4 w-4 text-chart-2" />
+                        <Check className="h-3 w-3 sm:h-4 sm:w-4 text-chart-2" />
                       )}
                     </Button>
                   </div>

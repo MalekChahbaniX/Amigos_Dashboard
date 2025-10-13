@@ -311,18 +311,20 @@ export default function Settings() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold">Paramètres</h1>
-        <p className="text-muted-foreground">Gérez votre compte et les paramètres de l'application</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 xs:px-6 sm:px-8 py-4 xs:py-6 sm:py-8">
+        <div className="space-y-4 xs:space-y-6 sm:space-y-8">
+          <div className="min-w-0">
+            <h1 className="text-xl xs:text-2xl sm:text-3xl lg:text-4xl font-semibold leading-tight">Paramètres</h1>
+            <p className="text-sm xs:text-base text-muted-foreground mt-1">Gérez votre compte et les paramètres de l'application</p>
+          </div>
 
       <Tabs defaultValue="profile" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="profile">Profil</TabsTrigger>
-          <TabsTrigger value="application">Application</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="security">Sécurité</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 xs:grid-cols-4 gap-1 xs:gap-2 h-auto p-1">
+          <TabsTrigger value="profile" className="text-xs xs:text-sm sm:text-base px-2 xs:px-3 sm:px-4 py-2 xs:py-2.5 sm:py-3 min-h-[36px] xs:min-h-[40px]">Profil</TabsTrigger>
+          <TabsTrigger value="application" className="text-xs xs:text-sm sm:text-base px-2 xs:px-3 sm:px-4 py-2 xs:py-2.5 sm:py-3 min-h-[36px] xs:min-h-[40px]">Application</TabsTrigger>
+          <TabsTrigger value="notifications" className="text-xs xs:text-sm sm:text-base px-2 xs:px-3 sm:px-4 py-2 xs:py-2.5 sm:py-3 min-h-[36px] xs:min-h-[40px]">Notifications</TabsTrigger>
+          <TabsTrigger value="security" className="text-xs xs:text-sm sm:text-base px-2 xs:px-3 sm:px-4 py-2 xs:py-2.5 sm:py-3 min-h-[36px] xs:min-h-[40px]">Sécurité</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="space-y-4">
@@ -337,57 +339,65 @@ export default function Settings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 xs:gap-4 grid-cols-1 xs:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">Prénom</Label>
+                  <Label htmlFor="firstName" className="text-sm xs:text-base font-medium">Prénom</Label>
                   <Input
                     id="firstName"
                     value={profile.firstName}
                     onChange={(e) => setProfile(prev => ({ ...prev, firstName: e.target.value }))}
                     placeholder="Votre prénom"
+                    className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Nom</Label>
+                  <Label htmlFor="lastName" className="text-sm xs:text-base font-medium">Nom</Label>
                   <Input
                     id="lastName"
                     value={profile.lastName}
                     onChange={(e) => setProfile(prev => ({ ...prev, lastName: e.target.value }))}
                     placeholder="Votre nom"
+                    className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-sm xs:text-base font-medium">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   value={profile.email}
                   onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
                   placeholder="admin@amigos-delivery.tn"
+                  className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Téléphone</Label>
+                <Label htmlFor="phone" className="text-sm xs:text-base font-medium">Téléphone</Label>
                 <Input
                   id="phone"
                   value={profile.phoneNumber}
                   onChange={(e) => setProfile(prev => ({ ...prev, phoneNumber: e.target.value }))}
                   placeholder="+216 XX XXX XXX"
+                  className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
                 />
               </div>
 
-              <Button onClick={handleSaveProfile} disabled={saving}>
+              <Button
+                onClick={handleSaveProfile}
+                disabled={saving}
+                className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base touch-manipulation"
+              >
                 {saving ? (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    <RefreshCw className="h-3 w-3 xs:h-4 xs:w-4 mr-2 animate-spin" />
                     Sauvegarde...
                   </>
                 ) : (
                   <>
-                    <Save className="h-4 w-4 mr-2" />
+                    <Save className="h-3 w-3 xs:h-4 xs:w-4 mr-2" />
                     Sauvegarder le profil
                   </>
                 )}
@@ -405,7 +415,7 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="currentPassword">Mot de passe actuel</Label>
+                <Label htmlFor="currentPassword" className="text-sm xs:text-base font-medium">Mot de passe actuel</Label>
                 <div className="relative">
                   <Input
                     id="currentPassword"
@@ -413,22 +423,23 @@ export default function Settings() {
                     value={passwordData.currentPassword}
                     onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
                     placeholder="Mot de passe actuel"
+                    className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base pr-12"
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="absolute right-0 top-0 h-full"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 xs:h-8 xs:w-8 hover:bg-muted/50"
                     onClick={() => setPasswordData(prev => ({ ...prev, showCurrent: !prev.showCurrent }))}
                   >
-                    {passwordData.showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {passwordData.showCurrent ? <EyeOff className="h-3.5 w-3.5 xs:h-4 xs:w-4" /> : <Eye className="h-3.5 w-3.5 xs:h-4 xs:w-4" />}
                   </Button>
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 xs:gap-4 grid-cols-1 xs:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="newPassword">Nouveau mot de passe</Label>
+                  <Label htmlFor="newPassword" className="text-sm xs:text-base font-medium">Nouveau mot de passe</Label>
                   <div className="relative">
                     <Input
                       id="newPassword"
@@ -436,21 +447,22 @@ export default function Settings() {
                       value={passwordData.newPassword}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
                       placeholder="Nouveau mot de passe"
+                      className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base pr-12"
                     />
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="absolute right-0 top-0 h-full"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 xs:h-8 xs:w-8 hover:bg-muted/50"
                       onClick={() => setPasswordData(prev => ({ ...prev, showNew: !prev.showNew }))}
                     >
-                      {passwordData.showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {passwordData.showNew ? <EyeOff className="h-3.5 w-3.5 xs:h-4 xs:w-4" /> : <Eye className="h-3.5 w-3.5 xs:h-4 xs:w-4" />}
                     </Button>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+                  <Label htmlFor="confirmPassword" className="text-sm xs:text-base font-medium">Confirmer le mot de passe</Label>
                   <div className="relative">
                     <Input
                       id="confirmPassword"
@@ -458,24 +470,29 @@ export default function Settings() {
                       value={passwordData.confirmPassword}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
                       placeholder="Confirmer le mot de passe"
+                      className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base pr-12"
                     />
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="absolute right-0 top-0 h-full"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 xs:h-8 xs:w-8 hover:bg-muted/50"
                       onClick={() => setPasswordData(prev => ({ ...prev, showConfirm: !prev.showConfirm }))}
                     >
-                      {passwordData.showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {passwordData.showConfirm ? <EyeOff className="h-3.5 w-3.5 xs:h-4 xs:w-4" /> : <Eye className="h-3.5 w-3.5 xs:h-4 xs:w-4" />}
                     </Button>
                   </div>
                 </div>
               </div>
 
-              <Button onClick={handleChangePassword} disabled={saving}>
+              <Button
+                onClick={handleChangePassword}
+                disabled={saving}
+                className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base touch-manipulation"
+              >
                 {saving ? (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    <RefreshCw className="h-3 w-3 xs:h-4 xs:w-4 mr-2 animate-spin" />
                     Changement...
                   </>
                 ) : (
@@ -518,24 +535,26 @@ export default function Settings() {
                 />
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 xs:gap-4 grid-cols-1 xs:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="contactEmail">Email de contact</Label>
+                  <Label htmlFor="contactEmail" className="text-sm xs:text-base font-medium">Email de contact</Label>
                   <Input
                     id="contactEmail"
                     type="email"
                     value={appSettings.contactEmail}
                     onChange={(e) => setAppSettings(prev => ({ ...prev, contactEmail: e.target.value }))}
                     placeholder="contact@votre-entreprise.tn"
+                    className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="contactPhone">Téléphone de contact</Label>
+                  <Label htmlFor="contactPhone" className="text-sm xs:text-base font-medium">Téléphone de contact</Label>
                   <Input
                     id="contactPhone"
                     value={appSettings.contactPhone}
                     onChange={(e) => setAppSettings(prev => ({ ...prev, contactPhone: e.target.value }))}
                     placeholder="+216 XX XXX XXX"
+                    className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
                   />
                 </div>
               </div>
@@ -560,15 +579,19 @@ export default function Settings() {
                 />
               </div>
 
-              <Button onClick={handleSaveAppSettings} disabled={saving}>
+              <Button
+                onClick={handleSaveAppSettings}
+                disabled={saving}
+                className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base touch-manipulation"
+              >
                 {saving ? (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    <RefreshCw className="h-3 w-3 xs:h-4 xs:w-4 mr-2 animate-spin" />
                     Sauvegarde...
                   </>
                 ) : (
                   <>
-                    <Save className="h-4 w-4 mr-2" />
+                    <Save className="h-3 w-3 xs:h-4 xs:w-4 mr-2" />
                     Sauvegarder les paramètres
                   </>
                 )}
@@ -655,15 +678,19 @@ export default function Settings() {
                 />
               </div>
 
-              <Button onClick={handleSaveNotifications} disabled={saving}>
+              <Button
+                onClick={handleSaveNotifications}
+                disabled={saving}
+                className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base touch-manipulation"
+              >
                 {saving ? (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    <RefreshCw className="h-3 w-3 xs:h-4 xs:w-4 mr-2 animate-spin" />
                     Sauvegarde...
                   </>
                 ) : (
                   <>
-                    <Save className="h-4 w-4 mr-2" />
+                    <Save className="h-3 w-3 xs:h-4 xs:w-4 mr-2" />
                     Sauvegarder les notifications
                   </>
                 )}
@@ -727,15 +754,19 @@ export default function Settings() {
                 </p>
               </div>
 
-              <Button onClick={handleSaveSecurity} disabled={saving}>
+              <Button
+                onClick={handleSaveSecurity}
+                disabled={saving}
+                className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base touch-manipulation"
+              >
                 {saving ? (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    <RefreshCw className="h-3 w-3 xs:h-4 xs:w-4 mr-2 animate-spin" />
                     Sauvegarde...
                   </>
                 ) : (
                   <>
-                    <Save className="h-4 w-4 mr-2" />
+                    <Save className="h-3 w-3 xs:h-4 xs:w-4 mr-2" />
                     Sauvegarder la sécurité
                   </>
                 )}
@@ -744,6 +775,8 @@ export default function Settings() {
           </Card>
         </TabsContent>
       </Tabs>
+        </div>
+      </div>
     </div>
   );
 }
