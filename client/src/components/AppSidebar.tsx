@@ -1,12 +1,15 @@
-import { 
-  LayoutDashboard, 
-  Users, 
-  ShoppingBag, 
-  Truck, 
-  Store, 
+import {
+  LayoutDashboard,
+  Users,
+  ShoppingBag,
+  Truck,
+  Store,
   Package,
   BarChart3,
-  Settings
+  Settings,
+  MapPin,
+  Gift,
+  Sliders
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -52,6 +55,16 @@ const menuItems = [
     url: "/products",
     icon: Package,
   },
+  {
+    title: "Zones",
+    url: "/zones",
+    icon: MapPin,
+  },
+  {
+    title: "Promotions",
+    url: "/promotions",
+    icon: Gift,
+  },
 ];
 
 const secondaryItems = [
@@ -59,6 +72,11 @@ const secondaryItems = [
     title: "Analytiques",
     url: "/analytics",
     icon: BarChart3,
+  },
+  {
+    title: "Configuration",
+    url: "/configuration",
+    icon: Sliders,
   },
   {
     title: "Paramètres",

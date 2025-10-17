@@ -25,6 +25,7 @@ interface AppSettings {
   contactPhone: string;
   address: string;
   workingHours: string;
+  currency: string;
 }
 
 interface NotificationSettings {
@@ -60,7 +61,8 @@ export default function Settings() {
     contactEmail: 'contact@amigos-delivery.tn',
     contactPhone: '+216 71 123 456',
     address: '15 Avenue Habib Bourguiba, Tunis, Tunisie',
-    workingHours: 'Lun-Dim: 8h00 - 22h00'
+    workingHours: 'Lun-Dim: 8h00 - 22h00',
+    currency: 'TND'
   });
 
   // Notification settings state
@@ -95,15 +97,32 @@ export default function Settings() {
 
   const loadSettings = async () => {
     try {
-      const [appSettingsData, notificationSettingsData, securitySettingsData] = await Promise.all([
-        apiService.getAppSettings(),
-        apiService.getNotificationSettings(),
-        apiService.getSecuritySettings()
-      ]);
+      // Load app fee settings
+      const appFeeData = await apiService.getAppFee();
+      setAppSettings(prev => ({
+        ...prev,
+        businessName: 'AMIGOS Delivery',
+        businessDescription: 'Plateforme de livraison tout-en-un',
+        contactEmail: 'contact@amigos-delivery.tn',
+        contactPhone: '+216 71 123 456',
+        address: '15 Avenue Habib Bourguiba, Tunis, Tunisie',
+        workingHours: 'Lun-Dim: 8h00 - 22h00',
+        currency: appFeeData.currency
+      }));
 
-      setAppSettings(appSettingsData.settings);
-      setNotifications(notificationSettingsData.settings);
-      setSecurity(securitySettingsData.settings);
+      // Set default notification and security settings
+      setNotifications({
+        emailNotifications: true,
+        pushNotifications: true,
+        orderNotifications: true,
+        systemAlerts: true
+      });
+
+      setSecurity({
+        twoFactorEnabled: false,
+        sessionTimeout: 30,
+        passwordExpiry: 90
+      });
     } catch (error) {
       console.error('Error loading settings:', error);
       // Use default values if API fails
@@ -170,18 +189,16 @@ export default function Settings() {
   const handleSaveAppSettings = async () => {
     setSaving(true);
     try {
-      const response = await apiService.updateAppSettings({
-        businessName: appSettings.businessName,
-        businessDescription: appSettings.businessDescription,
-        contactEmail: appSettings.contactEmail,
-        contactPhone: appSettings.contactPhone,
-        address: appSettings.address,
-        workingHours: appSettings.workingHours,
+      // Update app fee settings
+      await apiService.updateAppSettings({
+        appFee: 1.0, // Default app fee
+        currency: appSettings.currency,
+        updatedBy: 'admin'
       });
 
       toast({
         title: "Succès",
-        description: response.message || "Paramètres de l'application sauvegardés",
+        description: "Paramètres de l'application sauvegardés",
       });
     } catch (error: any) {
       console.error('Error saving app settings:', error);

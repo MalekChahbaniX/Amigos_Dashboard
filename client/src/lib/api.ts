@@ -1,6 +1,6 @@
 // API Configuration
-//const API_BASE_URL = 'http://localhost:5000/api';
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://amigos-backend-ga2t.onrender.com/api';
+const API_BASE_URL = 'http://localhost:5000/api';
+//const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://amigos-backend-ga2t.onrender.com/api';
 
 interface LoginResponse {
   _id: string;
@@ -616,52 +616,6 @@ class ApiService {
     });
   }
 
-  async getAppSettings(): Promise<{
-    settings: {
-      businessName: string;
-      businessDescription: string;
-      contactEmail: string;
-      contactPhone: string;
-      address: string;
-      workingHours: string;
-      currency: string;
-      language: string;
-      timezone: string;
-    };
-  }> {
-    return this.request('/settings/app');
-  }
-
-  async updateAppSettings(settingsData: {
-    businessName?: string;
-    businessDescription?: string;
-    contactEmail?: string;
-    contactPhone?: string;
-    address?: string;
-    workingHours?: string;
-    currency?: string;
-    language?: string;
-    timezone?: string;
-  }): Promise<{
-    message: string;
-    settings: {
-      businessName: string;
-      businessDescription: string;
-      contactEmail: string;
-      contactPhone: string;
-      address: string;
-      workingHours: string;
-      currency: string;
-      language: string;
-      timezone: string;
-    };
-  }> {
-    return this.request('/settings/app', {
-      method: 'PUT',
-      body: JSON.stringify(settingsData),
-    });
-  }
-
   async getNotificationSettings(): Promise<{
     settings: {
       emailNotifications: boolean;
@@ -736,6 +690,464 @@ class ApiService {
   // Test connection to backend
   async testConnection(): Promise<{ message: string; database: any; wasender: any }> {
     return this.request('/auth/test');
+  }
+
+  // ===== ZONE MANAGEMENT API METHODS =====
+
+  // Get all zones
+  async getZones(search?: string, page?: number, limit?: number): Promise<{
+    zones: Array<{
+      id: string;
+      number: number;
+      minDistance: number;
+      maxDistance: number;
+      price: number;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+    pagination: {
+      currentPage: number;
+      totalPages: number;
+      totalItems: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    };
+  }> {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
+
+    return this.request(`/zones?${params}`);
+  }
+
+  // Get zone by ID
+  async getZoneById(id: string): Promise<{
+    id: string;
+    number: number;
+    minDistance: number;
+    maxDistance: number;
+    price: number;
+    createdAt: string;
+    updatedAt: string;
+  }> {
+    return this.request(`/zones/${id}`);
+  }
+
+  // Create new zone
+  async createZone(zoneData: {
+    number: number;
+    minDistance: number;
+    maxDistance: number;
+    price: number;
+  }): Promise<{
+    message: string;
+    zone: {
+      id: string;
+      number: number;
+      minDistance: number;
+      maxDistance: number;
+      price: number;
+    };
+  }> {
+    return this.request('/zones', {
+      method: 'POST',
+      body: JSON.stringify(zoneData),
+    });
+  }
+
+  // Update zone
+  async updateZone(id: string, zoneData: {
+    number?: number;
+    minDistance?: number;
+    maxDistance?: number;
+    price?: number;
+  }): Promise<{
+    message: string;
+    zone: {
+      id: string;
+      number: number;
+      minDistance: number;
+      maxDistance: number;
+      price: number;
+    };
+  }> {
+    return this.request(`/zones/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(zoneData),
+    });
+  }
+
+  // Delete zone
+  async deleteZone(id: string): Promise<{
+    message: string;
+  }> {
+    return this.request(`/zones/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Get user zone based on location
+  async getUserZone(userData: {
+    userLat: number;
+    userLng: number;
+    cityId: string;
+    destLat: number;
+    destLng: number;
+  }): Promise<{
+    zone: number;
+    distance: string;
+    price: number;
+  }> {
+    return this.request('/zones/get-zone', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
+  }
+
+  // Update zone price
+  async updateZonePrice(zoneNumber: number, newPrice: number): Promise<{
+    message: string;
+    zone: {
+      number: number;
+      price: number;
+    };
+  }> {
+    return this.request('/zones/update-price', {
+      method: 'PUT',
+      body: JSON.stringify({ zoneNumber, newPrice }),
+    });
+  }
+
+  // ===== PROMOTION MANAGEMENT API METHODS =====
+
+  // Get all promotions
+  async getPromos(status?: string, page?: number, limit?: number): Promise<{
+    data: Array<{
+      id: string;
+      name: string;
+      status: 'active' | 'closed';
+      targetServices: string[];
+      maxOrders: number;
+      ordersUsed: number;
+      maxAmount: number;
+      deliveryOnly: boolean;
+      startDate: string;
+      endDate?: string;
+      createdAt: string;
+      isActive: boolean;
+    }>;
+    pagination: {
+      currentPage: number;
+      totalPages: number;
+      totalItems: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    };
+  }> {
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
+
+    return this.request(`/promos?${params}`);
+  }
+
+  // Get promotion by ID
+  async getPromoById(id: string): Promise<{
+    data: {
+      id: string;
+      name: string;
+      status: 'active' | 'closed';
+      targetServices: string[];
+      maxOrders: number;
+      ordersUsed: number;
+      maxAmount: number;
+      deliveryOnly: boolean;
+      startDate: string;
+      endDate?: string;
+      createdAt: string;
+      isActive: boolean;
+    };
+  }> {
+    return this.request(`/promos/${id}`);
+  }
+
+  // Create new promotion
+  async createPromo(promoData: {
+    name: string;
+    status?: 'active' | 'closed';
+    targetServices: string[];
+    maxOrders?: number;
+    maxAmount?: number;
+    deliveryOnly?: boolean;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<{
+    message: string;
+    data: {
+      id: string;
+      name: string;
+      status: 'active' | 'closed';
+      targetServices: string[];
+      maxOrders: number;
+      ordersUsed: number;
+      maxAmount: number;
+      deliveryOnly: boolean;
+      startDate: string;
+      endDate?: string;
+      createdAt: string;
+    };
+  }> {
+    return this.request('/promos/create', {
+      method: 'POST',
+      body: JSON.stringify(promoData),
+    });
+  }
+
+  // Update promotion
+  async updatePromo(id: string, promoData: {
+    name?: string;
+    status?: 'active' | 'closed';
+    targetServices?: string[];
+    maxOrders?: number;
+    maxAmount?: number;
+    deliveryOnly?: boolean;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<{
+    message: string;
+    data: {
+      id: string;
+      name: string;
+      status: 'active' | 'closed';
+      targetServices: string[];
+      maxOrders: number;
+      ordersUsed: number;
+      maxAmount: number;
+      deliveryOnly: boolean;
+      startDate: string;
+      endDate?: string;
+      createdAt: string;
+    };
+  }> {
+    return this.request(`/promos/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(promoData),
+    });
+  }
+
+  // Update promotion status
+  async updatePromoStatus(id: string, status: 'active' | 'closed'): Promise<{
+    message: string;
+    data: {
+      id: string;
+      status: 'active' | 'closed';
+    };
+  }> {
+    return this.request(`/promos/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  // Delete promotion
+  async deletePromo(id: string): Promise<{
+    message: string;
+  }> {
+    return this.request(`/promos/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ===== PROMO-PRODUCT MANAGEMENT API METHODS =====
+
+  // Get products by promotion
+  async getProductsByPromo(promoId: string, search?: string, page?: number, limit?: number): Promise<{
+    promo: string;
+    count: number;
+    totalPages: number;
+    page: number;
+    products: Array<{
+      id: string;
+      name: string;
+      category: string;
+      provider: string;
+      price: number;
+      status: string;
+      image?: string;
+    }>;
+  }> {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
+
+    return this.request(`/promo-products/${promoId}?${params}`);
+  }
+
+  // Get products without promotion
+  async getProductsWithoutPromo(search?: string, page?: number, limit?: number): Promise<{
+    count: number;
+    totalPages: number;
+    page: number;
+    products: Array<{
+      id: string;
+      name: string;
+      category: string;
+      provider: string;
+      price: number;
+      status: string;
+      image?: string;
+    }>;
+  }> {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
+
+    return this.request(`/promo-products?${params}`);
+  }
+
+  // Assign promotion to product
+  async assignPromoToProduct(productId: string, promoId: string): Promise<{
+    message: string;
+    product: {
+      id: string;
+      name: string;
+      promo?: {
+        id: string;
+        name: string;
+        status: string;
+      };
+    };
+  }> {
+    return this.request(`/promo-products/${productId}/assign`, {
+      method: 'PUT',
+      body: JSON.stringify({ promoId }),
+    });
+  }
+
+  // Remove promotion from product
+  async removePromoFromProduct(productId: string): Promise<{
+    message: string;
+    product: {
+      id: string;
+      name: string;
+    };
+  }> {
+    return this.request(`/promo-products/${productId}/unassign`, {
+      method: 'PUT',
+    });
+  }
+
+  // ===== APP SETTINGS API METHODS =====
+
+  // Get app settings
+  async getAppSettings(): Promise<{
+    data: {
+      appFee: number;
+      currency: string;
+      updatedAt?: string;
+      updatedBy?: string;
+    };
+  }> {
+    return this.request('/app-settings');
+  }
+
+  // Update app settings
+  async updateAppSettings(settingsData: {
+    appFee?: number;
+    currency?: string;
+    updatedBy?: string;
+  }): Promise<{
+    message: string;
+    data: {
+      appFee: number;
+      currency: string;
+      updatedAt: string;
+      updatedBy?: string;
+    };
+  }> {
+    return this.request('/app-settings', {
+      method: 'PUT',
+      body: JSON.stringify(settingsData),
+    });
+  }
+
+  // Reset app settings to default
+  async resetAppSettings(updatedBy?: string): Promise<{
+    message: string;
+    data: {
+      appFee: number;
+      currency: string;
+      updatedAt: string;
+      updatedBy?: string;
+    };
+  }> {
+    return this.request('/app-settings/reset', {
+      method: 'PUT',
+      body: JSON.stringify({ updatedBy }),
+    });
+  }
+
+  // Get app fee only
+  async getAppFee(): Promise<{
+    appFee: number;
+    currency: string;
+  }> {
+    return this.request('/app-settings/fee');
+  }
+
+  // ===== CITY MANAGEMENT API METHODS =====
+
+  // Get all cities
+  async getCities(): Promise<{
+    cities: Array<{
+      id: string;
+      name: string;
+      activeZones: number[];
+      isActive: boolean;
+      createdAt: string;
+    }>;
+  }> {
+    // Temporairement, retourner des données mockées
+    // À remplacer par l'appel API réel quand l'endpoint sera créé
+    return this.request('/cities');
+  }
+
+  // Create new city
+  async createCity(cityData: {
+    name: string;
+    activeZones: number[];
+  }): Promise<{
+    message: string;
+    city: {
+      id: string;
+      name: string;
+      activeZones: number[];
+      isActive: boolean;
+    };
+  }> {
+    return this.request('/cities', {
+      method: 'POST',
+      body: JSON.stringify(cityData),
+    });
+  }
+
+  // Update city zones
+  async updateCityZones(cityId: string, activeZones: number[]): Promise<{
+    message: string;
+    city: {
+      id: string;
+      name: string;
+      activeZones: number[];
+    };
+  }> {
+    return this.request(`/cities/${cityId}/zones`, {
+      method: 'PUT',
+      body: JSON.stringify({ activeZones }),
+    });
   }
 }
 
