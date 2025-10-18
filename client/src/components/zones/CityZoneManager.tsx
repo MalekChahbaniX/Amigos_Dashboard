@@ -49,23 +49,6 @@ export function CityZoneManager({ zones, onUpdate }: CityZoneManagerProps) {
       setCities(response.cities);
     } catch (error) {
       console.error("Erreur lors du chargement des villes:", error);
-      // Fallback vers données mockées si l'API n'existe pas encore
-      setCities([
-        {
-          id: '1',
-          name: 'Tunis',
-          activeZones: [1, 2],
-          isActive: true,
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: '2',
-          name: 'Sfax',
-          activeZones: [1],
-          isActive: true,
-          createdAt: new Date().toISOString()
-        }
-      ]);
     } finally {
       setLoading(false);
     }

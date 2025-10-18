@@ -28,6 +28,7 @@ export function ZoneList({ onSuccess }: ZoneListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [editingZone, setEditingZone] = useState<Zone | null>(null);
 
   useEffect(() => {
     fetchZones();
@@ -60,6 +61,20 @@ export function ZoneList({ onSuccess }: ZoneListProps) {
     }
   };
 
+  const handleEditZone = (zone: Zone) => {
+    setEditingZone(zone);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingZone(null);
+  };
+
+  const handleZoneUpdated = () => {
+    fetchZones();
+    setEditingZone(null);
+    onSuccess?.();
+  };
+
   const formatDistance = (min: number, max: number) => {
     if (max === Infinity) {
       return `${min}km+`;
@@ -84,7 +99,11 @@ export function ZoneList({ onSuccess }: ZoneListProps) {
             Gérez les zones de livraison et leurs tarifs
           </p>
         </div>
-        <ZoneForm onSuccess={handleZoneCreated} />
+        <ZoneForm
+          onSuccess={editingZone ? handleZoneCreated : handleZoneCreated}
+          editingZone={editingZone}
+          onCancelEdit={handleCancelEdit}
+        />
       </div>
 
       <div className="flex items-center space-x-2">
@@ -127,7 +146,12 @@ export function ZoneList({ onSuccess }: ZoneListProps) {
               </div>
 
               <div className="flex gap-2 pt-2">
-                <Button variant="outline" size="sm" className="flex-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => handleEditZone(zone)}
+                >
                   <Edit className="mr-2 h-4 w-4" />
                   Modifier
                 </Button>

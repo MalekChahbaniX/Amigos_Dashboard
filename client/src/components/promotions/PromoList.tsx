@@ -31,6 +31,7 @@ export function PromoList() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [editingPromo, setEditingPromo] = useState<Promotion | null>(null);
 
   useEffect(() => {
     fetchPromotions();
@@ -62,6 +63,19 @@ export function PromoList() {
     }
   };
 
+  const handleEditPromo = (promo: Promotion) => {
+    setEditingPromo(promo);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPromo(null);
+  };
+
+  const handlePromoUpdated = () => {
+    fetchPromotions();
+    setEditingPromo(null);
+  };
+
   const getStatusBadge = (status: string, isActive: boolean) => {
     if (status === 'active' && isActive) {
       return <Badge className="bg-green-100 text-green-800">Actif</Badge>;
@@ -72,19 +86,19 @@ export function PromoList() {
     }
   };
 
-  const getServiceBadges = (services: string[]) => {
-    const serviceLabels: { [key: string]: string } = {
-      restaurant: "Restaurant",
-      pharmacy: "Pharmacie",
-      course: "Cours"
-    };
-
-    return services.map(service => (
-      <Badge key={service} variant="outline" className="mr-1">
-        {serviceLabels[service] || service}
-      </Badge>
-    ));
+const getServiceBadges = (services: string[]) => {
+  const serviceLabels: { [key: string]: string } = {
+    restaurant: "Restaurant",
+    pharmacy: "Pharmacie",
+    course: "Course" // J'ai aussi corrigé "Cours" en "Course" pour être cohérent avec PromoForm
   };
+
+  return services.map(service => (
+    <Badge key={service} variant="outline" className="mr-1 mb-1"> {/* Ajout de mb-1 pour l'espacement vertical */}
+      {serviceLabels[service] || service}
+    </Badge>
+  ));
+};
 
   if (loading) {
     return (
@@ -103,7 +117,11 @@ export function PromoList() {
             Créez et gérez vos promotions et offres spéciales
           </p>
         </div>
-        <PromoForm onSuccess={fetchPromotions} />
+        <PromoForm
+          onSuccess={editingPromo ? handlePromoUpdated : fetchPromotions}
+          editingPromo={editingPromo}
+          onCancelEdit={handleCancelEdit}
+        />
       </div>
 
       <div className="flex items-center space-x-2">
@@ -170,7 +188,12 @@ export function PromoList() {
               </div>
 
               <div className="flex gap-2 pt-2">
-                <Button variant="outline" size="sm" className="flex-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => handleEditPromo(promo)}
+                >
                   <Edit className="mr-2 h-4 w-4" />
                   Modifier
                 </Button>

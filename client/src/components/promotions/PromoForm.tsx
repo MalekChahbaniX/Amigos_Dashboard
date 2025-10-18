@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,11 +8,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { apiService } from "@/lib/api";
-import { Plus, Calendar, Users, DollarSign } from "lucide-react";
+import { Plus, Edit, Calendar, Users, DollarSign } from "lucide-react";
+
+interface Promotion {
+  id: string;
+  name: string;
+  status: 'active' | 'closed';
+  targetServices: string[];
+  maxOrders: number;
+  ordersUsed: number;
+  maxAmount: number;
+  deliveryOnly: boolean;
+  startDate: string;
+  endDate?: string;
+  createdAt: string;
+  isActive: boolean;
+}
 
 interface PromoFormProps {
   onSuccess?: () => void;
   trigger?: React.ReactNode;
+  editingPromo?: Promotion | null;
+  onCancelEdit?: () => void;
 }
 
 interface PromoFormData {
@@ -25,14 +42,16 @@ interface PromoFormData {
   startDate: string;
   endDate: string;
 }
-
+type PromoFormErrors = {
+  [K in keyof PromoFormData]?: string;
+};
 const serviceOptions = [
   { value: 'restaurant', label: 'Restaurant' },
   { value: 'pharmacy', label: 'Pharmacie' },
-  { value: 'course', label: 'Cours' }
+  { value: 'course', label: 'Course' }
 ];
 
-export function PromoForm({ onSuccess, trigger }: PromoFormProps) {
+export function PromoForm({ onSuccess, trigger, editingPromo, onCancelEdit }: PromoFormProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<PromoFormData>({
@@ -45,10 +64,45 @@ export function PromoForm({ onSuccess, trigger }: PromoFormProps) {
     startDate: new Date().toISOString().split('T')[0],
     endDate: "",
   });
-  const [errors, setErrors] = useState<any>({});
+  const [errors, setErrors] = useState<PromoFormErrors>({});
+
+  const isEditing = !!editingPromo;
+
+  useEffect(() => {
+    if (editingPromo) {
+      setFormData({
+        name: editingPromo.name,
+        status: editingPromo.status,
+        targetServices: editingPromo.targetServices,
+        maxOrders: editingPromo.maxOrders.toString(),
+        maxAmount: editingPromo.maxAmount.toString(),
+        deliveryOnly: editingPromo.deliveryOnly,
+        startDate: new Date(editingPromo.startDate).toISOString().split('T')[0],
+        endDate: editingPromo.endDate ? new Date(editingPromo.endDate).toISOString().split('T')[0] : "",
+      });
+      setOpen(true);
+    }
+  }, [editingPromo]);
+
+  useEffect(() => {
+    if (!open && !editingPromo) {
+      // Reset form when dialog closes and not editing
+      setFormData({
+        name: "",
+        status: 'active',
+        targetServices: [],
+        maxOrders: "50",
+        maxAmount: "10",
+        deliveryOnly: true,
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: "",
+      });
+      setErrors({});
+    }
+  }, [open, editingPromo]);
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<PromoFormData> = {};
+    const newErrors: PromoFormErrors = {};
 
     if (!formData.name.trim()) {
       newErrors.name = "Le nom de la promotion est obligatoire";
@@ -95,7 +149,13 @@ export function PromoForm({ onSuccess, trigger }: PromoFormProps) {
         ...(formData.endDate && { endDate: new Date(formData.endDate).toISOString() }),
       };
 
-      await apiService.createPromo(promoData);
+      if (isEditing && editingPromo) {
+        // Update existing promotion
+        await apiService.updatePromo(editingPromo.id, promoData);
+      } else {
+        // Create new promotion
+        await apiService.createPromo(promoData);
+      }
 
       // Reset form
       setFormData({
@@ -112,7 +172,7 @@ export function PromoForm({ onSuccess, trigger }: PromoFormProps) {
       setOpen(false);
       onSuccess?.();
     } catch (error) {
-      console.error("Erreur lors de la création de la promotion:", error);
+      console.error(`Erreur lors de ${isEditing ? 'la modification' : 'la création'} de la promotion:`, error);
     } finally {
       setLoading(false);
     }
@@ -150,9 +210,14 @@ export function PromoForm({ onSuccess, trigger }: PromoFormProps) {
       <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Créer une nouvelle promotion</DialogTitle>
+            <DialogTitle>
+              {isEditing ? "Modifier la promotion" : "Créer une nouvelle promotion"}
+            </DialogTitle>
             <DialogDescription>
-              Configurez les paramètres de votre promotion.
+              {isEditing
+                ? "Modifiez les paramètres de cette promotion."
+                : "Configurez les paramètres de votre promotion."
+              }
             </DialogDescription>
           </DialogHeader>
 
@@ -289,13 +354,19 @@ export function PromoForm({ onSuccess, trigger }: PromoFormProps) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false);
+                onCancelEdit?.();
+              }}
               disabled={loading}
             >
               Annuler
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Création..." : "Créer la promotion"}
+              {loading
+                ? (isEditing ? "Modification..." : "Création...")
+                : (isEditing ? "Modifier la promotion" : "Créer la promotion")
+              }
             </Button>
           </DialogFooter>
         </form>

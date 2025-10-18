@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,11 +6,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiService } from "@/lib/api";
-import { Plus } from "lucide-react";
+import { Plus, Edit } from "lucide-react";
+
+interface Zone {
+  id: string;
+  number: number;
+  minDistance: number;
+  maxDistance: number;
+  price: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface ZoneFormProps {
   onSuccess?: () => void;
   trigger?: React.ReactNode;
+  editingZone?: Zone | null;
+  onCancelEdit?: () => void;
 }
 
 interface ZoneFormData {
@@ -20,7 +32,7 @@ interface ZoneFormData {
   price: string;
 }
 
-export function ZoneForm({ onSuccess, trigger }: ZoneFormProps) {
+export function ZoneForm({ onSuccess, trigger, editingZone, onCancelEdit }: ZoneFormProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<ZoneFormData>({
@@ -31,22 +43,56 @@ export function ZoneForm({ onSuccess, trigger }: ZoneFormProps) {
   });
   const [errors, setErrors] = useState<Partial<ZoneFormData>>({});
 
-  const validateForm = (): boolean => {
+  const isEditing = !!editingZone;
+
+  useEffect(() => {
+    if (editingZone) {
+      setFormData({
+        number: editingZone.number.toString(),
+        minDistance: editingZone.minDistance.toString(),
+        maxDistance: editingZone.maxDistance.toString(),
+        price: editingZone.price.toString(),
+      });
+      setOpen(true);
+    }
+  }, [editingZone]);
+
+  useEffect(() => {
+    if (!open && !editingZone) {
+      // Reset form when dialog closes and not editing
+      setFormData({
+        number: "",
+        minDistance: "",
+        maxDistance: "",
+        price: "",
+      });
+      setErrors({});
+    }
+  }, [open, editingZone]);
+
+const validateForm = (): boolean => {
     const newErrors: Partial<ZoneFormData> = {};
 
-    if (!formData.number || isNaN(Number(formData.number)) || Number(formData.number) <= 0) {
+    const numValue = Number(formData.number);
+    const minDistValue = Number(formData.minDistance);
+    const maxDistValue = Number(formData.maxDistance);
+    const priceValue = Number(formData.price);
+
+    if (!formData.number || isNaN(numValue) || numValue <= 0) {
       newErrors.number = "Numéro de zone invalide";
     }
 
-    if (!formData.minDistance || isNaN(Number(formData.minDistance)) || Number(formData.minDistance) < 0) {
+    if (!formData.minDistance || isNaN(minDistValue) || minDistValue < 0) {
       newErrors.minDistance = "Distance minimale invalide";
     }
 
-    if (!formData.maxDistance || isNaN(Number(formData.maxDistance)) || Number(formData.maxDistance) <= Number(formData.minDistance)) {
+    if (!formData.maxDistance || isNaN(maxDistValue) || maxDistValue < 0) {
       newErrors.maxDistance = "Distance maximale invalide";
+    } else if (maxDistValue <= minDistValue) {
+      newErrors.maxDistance = "La distance maximale doit être supérieure à la distance minimale";
     }
 
-    if (!formData.price || isNaN(Number(formData.price)) || Number(formData.price) < 0) {
+    if (!formData.price || isNaN(priceValue) || priceValue < 0) {
       newErrors.price = "Prix invalide";
     }
 
@@ -64,12 +110,23 @@ export function ZoneForm({ onSuccess, trigger }: ZoneFormProps) {
     try {
       setLoading(true);
 
-      await apiService.createZone({
-        number: Number(formData.number),
-        minDistance: Number(formData.minDistance),
-        maxDistance: Number(formData.maxDistance),
-        price: Number(formData.price),
-      });
+      if (isEditing && editingZone) {
+        // Update existing zone
+        await apiService.updateZone(editingZone.id, {
+          number: Number(formData.number),
+          minDistance: Number(formData.minDistance),
+          maxDistance: Number(formData.maxDistance),
+          price: Number(formData.price),
+        });
+      } else {
+        // Create new zone
+        await apiService.createZone({
+          number: Number(formData.number),
+          minDistance: Number(formData.minDistance),
+          maxDistance: Number(formData.maxDistance),
+          price: Number(formData.price),
+        });
+      }
 
       setFormData({
         number: "",
@@ -81,7 +138,7 @@ export function ZoneForm({ onSuccess, trigger }: ZoneFormProps) {
       setOpen(false);
       onSuccess?.();
     } catch (error) {
-      console.error("Erreur lors de la création de la zone:", error);
+      console.error(`Erreur lors de ${isEditing ? 'la modification' : 'la création'} de la zone:`, error);
     } finally {
       setLoading(false);
     }
@@ -107,9 +164,14 @@ export function ZoneForm({ onSuccess, trigger }: ZoneFormProps) {
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Créer une nouvelle zone</DialogTitle>
+            <DialogTitle>
+              {isEditing ? "Modifier la zone" : "Créer une nouvelle zone"}
+            </DialogTitle>
             <DialogDescription>
-              Ajoutez une nouvelle zone de livraison avec ses tarifs.
+              {isEditing
+                ? "Modifiez les paramètres de cette zone de livraison."
+                : "Ajoutez une nouvelle zone de livraison avec ses tarifs."
+              }
             </DialogDescription>
           </DialogHeader>
 
@@ -186,13 +248,19 @@ export function ZoneForm({ onSuccess, trigger }: ZoneFormProps) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false);
+                onCancelEdit?.();
+              }}
               disabled={loading}
             >
               Annuler
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Création..." : "Créer la zone"}
+              {loading
+                ? (isEditing ? "Modification..." : "Création...")
+                : (isEditing ? "Modifier la zone" : "Créer la zone")
+              }
             </Button>
           </DialogFooter>
         </form>
