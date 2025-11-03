@@ -397,6 +397,15 @@ class ApiService {
       price: number;
       stock: number;
       status: "available" | "out_of_stock" | "discontinued";
+      options?: Array<{
+        name: string;
+        required: boolean;
+        maxSelections: number;
+        subOptions: Array<{
+          name: string;
+          price?: number;
+        }>;
+      }>;
     }>;
     total: number;
     page: number;
@@ -425,6 +434,15 @@ class ApiService {
     stock: number;
     status: "available" | "out_of_stock" | "discontinued";
     image?: string;
+    options?: Array<{
+      name: string;
+      required: boolean;
+      maxSelections: number;
+      subOptions: Array<{
+        name: string;
+        price?: number;
+      }>;
+    }>;
   }> {
     return this.request(`/products/${id}`);
   }
@@ -438,6 +456,20 @@ class ApiService {
     status?: "available" | "out_of_stock" | "discontinued";
     providerId: string;
     image?: string;
+    sizes?: Array<{
+      name: string;
+      price: number;
+      optionGroups?: string[];
+    }>;
+    options?: Array<{
+      name: string;
+      required: boolean;
+      maxSelections: number;
+      subOptions: Array<{
+        name: string;
+        price?: number;
+      }>;
+    }>;
   }): Promise<{
     message: string;
     product: {
@@ -449,6 +481,20 @@ class ApiService {
       stock: number;
       status: "available" | "out_of_stock" | "discontinued";
       image?: string;
+      sizes?: Array<{
+        name: string;
+        price: number;
+        optionGroups?: string[];
+      }>;
+      options?: Array<{
+        name: string;
+        required: boolean;
+        maxSelections: number;
+        subOptions: Array<{
+          name: string;
+          price?: number;
+        }>;
+      }>;
     };
   }> {
     return this.request('/products', {
@@ -465,6 +511,20 @@ class ApiService {
     stock?: number;
     status?: "available" | "out_of_stock" | "discontinued";
     image?: string;
+    sizes?: Array<{
+      name: string;
+      price: number;
+      optionGroups?: string[];
+    }>;
+    options?: Array<{
+      name: string;
+      required: boolean;
+      maxSelections: number;
+      subOptions: Array<{
+        name: string;
+        price?: number;
+      }>;
+    }>;
   }): Promise<{
     message: string;
     product: {
@@ -476,6 +536,20 @@ class ApiService {
       stock: number;
       status: "available" | "out_of_stock" | "discontinued";
       image?: string;
+      sizes?: Array<{
+        name: string;
+        price: number;
+        optionGroups?: string[];
+      }>;
+      options?: Array<{
+        name: string;
+        required: boolean;
+        maxSelections: number;
+        subOptions: Array<{
+          name: string;
+          price?: number;
+        }>;
+      }>;
     };
   }> {
     return this.request(`/products/${id}`, {
@@ -502,6 +576,80 @@ class ApiService {
     status: "available" | "out_of_stock" | "discontinued";
   }>> {
     return this.request(`/products/provider/${providerId}`);
+  }
+
+  // Option Group management methods
+  async getOptionGroupsByProduct(productId: string): Promise<Array<{
+    _id: string;
+    name: string;
+    description?: string;
+    options: Array<{
+      _id: string;
+      name: string;
+      price: number;
+    }>;
+  }>> {
+    return this.request(`/option-groups?product=${productId}`);
+  }
+
+  async createOptionGroup(groupData: {
+    name: string;
+    description?: string;
+    image?: string;
+    productId: string;
+  }): Promise<{
+    message: string;
+    group: {
+      _id: string;
+      name: string;
+      description?: string;
+    };
+  }> {
+    return this.request('/option-groups', {
+      method: 'POST',
+      body: JSON.stringify(groupData),
+    });
+  }
+
+  async addOptionToGroup(groupId: string, optionData: {
+    name: string;
+    price: number;
+    image?: string;
+  }): Promise<{
+    message: string;
+  }> {
+    return this.request(`/product-options`, {
+      method: 'POST',
+      body: JSON.stringify({
+        groupId,
+        ...optionData
+      }),
+    });
+  }
+
+  async deleteOptionGroup(groupId: string): Promise<{
+    message: string;
+  }> {
+    return this.request(`/option-groups/${groupId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async deleteProductOption(optionId: string): Promise<{
+    message: string;
+  }> {
+    return this.request(`/product-options/${optionId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async addSubGroup(parentId: string, subGroupId: string): Promise<{
+    message: string;
+  }> {
+    return this.request(`/option-groups/${parentId}/sub-option-groups`, {
+      method: 'POST',
+      body: JSON.stringify({ subGroupId }),
+    });
   }
 
   // Analytics methods

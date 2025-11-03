@@ -24,6 +24,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiService } from "@/lib/api";
 
+interface ProductSize {
+  name: string;
+  price: number;
+  optionGroups?: string[];
+}
+
+interface ProductOption {
+  name: string;
+  required: boolean;
+  price?: number;
+  maxSelections: number;
+  image?: string;
+  subOptions: Array<{
+    name: string;
+    price?: number;
+    image?: string;
+  }>;
+}
+
 interface Product {
   id: string;
   name: string;
@@ -33,6 +52,8 @@ interface Product {
   stock: number;
   status: "available" | "out_of_stock" | "discontinued";
   image?: string;
+  sizes?: ProductSize[];
+  options?: ProductOption[];
 }
 
 interface ProductsResponse {
@@ -51,6 +72,21 @@ interface CreateProductForm {
   stock: string;
   status: "available" | "out_of_stock" | "discontinued";
   image: string;
+  sizes?: ProductSize[];
+  options: ProductOption[];
+}
+
+interface OptionGroup {
+  _id: string;
+  name: string;
+  description?: string;
+  image?: string;
+  options: Array<{
+    _id: string;
+    name: string;
+    price: number;
+    image?: string;
+  }>;
 }
 
 export default function Products() {
@@ -72,7 +108,8 @@ export default function Products() {
     category: "",
     stock: "",
     status: "available",
-    image: ""
+    image: "",
+    options: []
   });
   const [createForm, setCreateForm] = useState<CreateProductForm>({
     name: "",
@@ -81,8 +118,23 @@ export default function Products() {
     category: "",
     stock: "",
     status: "available",
-    image: ""
+    image: "",
+    sizes: [],
+    options: []
   });
+
+  const [currentOption, setCurrentOption] = useState<string>("");
+  const [currentSubOptions, setCurrentSubOptions] = useState<string>("");
+  const [currentOptionRequired, setCurrentOptionRequired] = useState<boolean>(false);
+  const [currentOptionPrice, setCurrentOptionPrice] = useState<number>(0);
+  const [currentOptionMaxSelections, setCurrentOptionMaxSelections] = useState<number>(1);
+
+  // Options dialog state - moved to top to fix hooks order
+  const [isOptionsDialogOpen, setIsOptionsDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [optionGroups, setOptionGroups] = useState<OptionGroup[]>([]);
+  const [newGroup, setNewGroup] = useState({ name: "", description: "", image: "" });
+  const [newOption, setNewOption] = useState({ name: "", price: "", image: "" });
 
   const fetchProducts = async (page = 1) => {
     try {
@@ -170,6 +222,8 @@ export default function Products() {
         status: createForm.status,
         providerId: defaultProviderId,
         image: createForm.image || undefined,
+        sizes: createForm.sizes || undefined,
+        options: createForm.options || undefined,
       });
 
       console.log('Product created successfully:', response);
@@ -218,8 +272,15 @@ export default function Products() {
       category: "",
       stock: "",
       status: "available",
-      image: ""
+      image: "",
+      sizes: [],
+      options: []
     });
+    setCurrentOption("");
+    setCurrentSubOptions("");
+    setCurrentOptionRequired(false);
+    setCurrentOptionPrice(0);
+    setCurrentOptionMaxSelections(1);
   };
 
   const handleEditProduct = (product: Product) => {
@@ -231,8 +292,15 @@ export default function Products() {
       category: product.category,
       stock: product.stock.toString(),
       status: product.status,
-      image: "" // TODO: Get from API when available
+      image: "", // TODO: Get from API when available
+      sizes: product.sizes || [],
+      options: product.options || []
     });
+    setCurrentOption("");
+    setCurrentSubOptions("");
+    setCurrentOptionRequired(false);
+    setCurrentOptionPrice(0);
+    setCurrentOptionMaxSelections(1);
     setIsEditDialogOpen(true);
   };
 
@@ -256,6 +324,8 @@ export default function Products() {
         stock: parseInt(editForm.stock) || 0,
         status: editForm.status,
         image: editForm.image || undefined,
+        sizes: editForm.sizes || undefined,
+        options: editForm.options || undefined,
       });
 
       toast({
@@ -282,6 +352,113 @@ export default function Products() {
     return <div className="flex items-center justify-center h-64">Chargement...</div>;
   }
 
+  // 🔹 Ouvrir le dialog pour un produit
+  const openOptionsDialog = async (productId: string) => {
+    setSelectedProduct(products.find((p) => p.id === productId) || null);
+    setIsOptionsDialogOpen(true);
+    await fetchOptionGroups(productId);
+  };
+
+  // 🔹 Charger les groupes d’options du produit
+  const fetchOptionGroups = async (productId: string) => {
+    try {
+      const res = await apiService.getOptionGroupsByProduct(productId);
+      setOptionGroups(res || []);
+    } catch (error) {
+      console.error('Error fetching option groups:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les options du produit",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // 🔹 Créer un nouveau groupe
+  const createOptionGroup = async () => {
+    if (!newGroup.name || !selectedProduct) return;
+    try {
+      await apiService.createOptionGroup({
+        name: newGroup.name,
+        description: newGroup.description || undefined,
+        image: newGroup.image || undefined,
+        productId: selectedProduct.id,
+      });
+      toast({ title: "Succès", description: "Groupe ajouté" });
+      setNewGroup({ name: "", description: "", image: "" });
+      fetchOptionGroups(selectedProduct.id);
+    } catch (err) {
+      toast({ title: "Erreur", description: "Échec de création", variant: "destructive" });
+    }
+  };
+
+  // 🔹 Ajouter une option dans un groupe
+  const addOptionToGroup = async (groupId: string) => {
+    if (!newOption.name || !selectedProduct) return;
+    try {
+      await apiService.addOptionToGroup(groupId, {
+        name: newOption.name,
+        price: parseFloat(newOption.price) || 0,
+        image: newOption.image || undefined,
+      });
+      toast({ title: "Succès", description: "Option ajoutée" });
+      setNewOption({ name: "", price: "", image: "" });
+      fetchOptionGroups(selectedProduct.id);
+    } catch (err) {
+      toast({ title: "Erreur", description: "Échec d’ajout d’option", variant: "destructive" });
+    }
+  };
+
+  // 🔹 Supprimer un groupe
+  const deleteOptionGroup = async (groupId: string) => {
+    if (!confirm("Supprimer ce groupe ?") || !selectedProduct) return;
+    try {
+      await apiService.deleteOptionGroup(groupId);
+      toast({ title: "Supprimé", description: "Groupe supprimé" });
+      fetchOptionGroups(selectedProduct.id);
+    } catch {
+      toast({ title: "Erreur", description: "Suppression échouée", variant: "destructive" });
+    }
+  };
+
+  // 🔹 Supprimer une option
+  const deleteOption = async (optionId: string) => {
+    if (!selectedProduct) return;
+    try {
+      await apiService.deleteProductOption(optionId);
+      toast({ title: "Supprimé", description: "Option supprimée" });
+      fetchOptionGroups(selectedProduct.id);
+    } catch {
+      toast({ title: "Erreur", description: "Échec suppression", variant: "destructive" });
+    }
+  };
+
+  const handleAddSubGroup = async (groupId: string) => {
+   const subGroupName = prompt("Nom du sous-groupe ?");
+   if (!subGroupName || !selectedProduct) return;
+
+   try {
+     // Crée d'abord un nouveau groupe
+     const newGroup = await apiService.createOptionGroup({
+       name: subGroupName,
+       productId: selectedProduct.id,
+     });
+
+     // Puis lie ce nouveau groupe comme sous-groupe
+     await apiService.addSubGroup(groupId, newGroup.group._id);
+
+     toast({ title: "Sous-groupe ajouté avec succès" });
+     fetchOptionGroups(selectedProduct.id);
+   } catch (err) {
+     toast({
+       title: "Erreur",
+       description: "Impossible d’ajouter le sous-groupe",
+       variant: "destructive",
+     });
+   }
+ };
+
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -296,7 +473,7 @@ export default function Products() {
               Nouveau produit
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[425px] max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Nouveau produit</DialogTitle>
               <DialogDescription>
@@ -380,6 +557,124 @@ export default function Products() {
                   placeholder="https://example.com/image.jpg"
                 />
               </div>
+
+              {/* Options Section */}
+              <div className="grid gap-4">
+                <Label>Options (optionnel)</Label>
+                <div className="space-y-2">
+                  {createForm.options.map((option, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 border rounded">
+                      <span className="font-medium">{option.name}:</span>
+                      <span className="text-sm text-muted-foreground">
+                        {option.required ? 'Requis' : 'Optionnel'} - Prix: €{option.price || 0} - Max: {option.maxSelections} - {option.subOptions.map(sub => sub.name + (sub.price ? ` (+€${sub.price})` : '')).join(', ')}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setCreateForm(prev => ({
+                            ...prev,
+                            options: prev.options.filter((_, i) => i !== index)
+                          }));
+                        }}
+                        className="ml-auto"
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="Nom de l'option (ex: Frites)"
+                    value={currentOption}
+                    onChange={(e) => setCurrentOption(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Sous-options (ex: Frites Classiques, Frites Cheddar (+2.50))"
+                    value={currentSubOptions}
+                    onChange={(e) => setCurrentSubOptions(e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="required"
+                      checked={currentOptionRequired}
+                      onChange={(e) => setCurrentOptionRequired(e.target.checked)}
+                    />
+                    <Label htmlFor="required">Requis</Label>
+                  </div>
+                  <Input
+                    type="number"
+                    placeholder="Prix option (€)"
+                    value={currentOptionPrice || ""}
+                    onChange={(e) => setCurrentOptionPrice(parseFloat(e.target.value) || 0)}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Max sélections (1)"
+                    value={currentOptionMaxSelections}
+                    onChange={(e) => setCurrentOptionMaxSelections(parseInt(e.target.value) || 1)}
+                    min="1"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="required"
+                      checked={currentOptionRequired}
+                      onChange={(e) => setCurrentOptionRequired(e.target.checked)}
+                    />
+                    <Label htmlFor="required">Requis</Label>
+                  </div>
+                  <Input
+                    type="number"
+                    placeholder="Max sélections (1)"
+                    value={currentOptionMaxSelections}
+                    onChange={(e) => setCurrentOptionMaxSelections(parseInt(e.target.value) || 1)}
+                    min="1"
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
+                  onClick={() => {
+                    console.log('Adding option to create form');
+                    if (currentOption.trim() && currentSubOptions.trim()) {
+                      const subOptions = currentSubOptions.split(',').map(s => {
+                        const trimmed = s.trim();
+                        const priceMatch = trimmed.match(/(.+)\s*\(\+([\d.]+)\)$/);
+                        if (priceMatch) {
+                          return { name: priceMatch[1].trim(), price: parseFloat(priceMatch[2]) };
+                        }
+                        return { name: trimmed };
+                      }).filter(sub => sub.name);
+                      if (subOptions.length > 0) {
+                        setCreateForm(prev => ({
+                          ...prev,
+                          options: [...prev.options, {
+                            name: currentOption.trim(),
+                            required: currentOptionRequired,
+                            price: currentOptionPrice,
+                            maxSelections: currentOptionMaxSelections,
+                            subOptions
+                          }]
+                        }));
+                        setCurrentOption("");
+                        setCurrentSubOptions("");
+                        setCurrentOptionRequired(false);
+                        setCurrentOptionPrice(0);
+                        setCurrentOptionMaxSelections(1);
+                      }
+                    }
+                  }}
+                >
+                  Ajouter Option
+                </button>
+              </div>
             </div>
             <div className="flex justify-end gap-2">
               <Button
@@ -400,7 +695,7 @@ export default function Products() {
 
         {/* Edit Product Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[425px] max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Modifier le produit</DialogTitle>
               <DialogDescription>
@@ -484,6 +779,106 @@ export default function Products() {
                   placeholder="https://example.com/image.jpg"
                 />
               </div>
+
+              {/* Edit Options Section */}
+              <div className="grid gap-4">
+                <Label>Options (optionnel)</Label>
+                <div className="space-y-2">
+                  {editForm.options.map((option, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 border rounded">
+                      <span className="font-medium">{option.name}:</span>
+                      <span className="text-sm text-muted-foreground">
+                        {option.required ? 'Requis' : 'Optionnel'} - Prix: €{option.price || 0} - Max: {option.maxSelections} - {option.subOptions.map(sub => sub.name + (sub.price ? ` (+€${sub.price})` : '')).join(', ')}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEditForm(prev => ({
+                            ...prev,
+                            options: prev.options.filter((_, i) => i !== index)
+                          }));
+                        }}
+                        className="ml-auto"
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="Nom de l'option (ex: Frites)"
+                    value={currentOption}
+                    onChange={(e) => setCurrentOption(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Sous-options (ex: Frites Classiques, Frites Cheddar (+2.50))"
+                    value={currentSubOptions}
+                    onChange={(e) => setCurrentSubOptions(e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="edit-required"
+                      checked={currentOptionRequired}
+                      onChange={(e) => setCurrentOptionRequired(e.target.checked)}
+                    />
+                    <Label htmlFor="edit-required">Requis</Label>
+                  </div>
+                  <Input
+                    type="number"
+                    placeholder="Prix option (€)"
+                    value={currentOptionPrice || ""}
+                    onChange={(e) => setCurrentOptionPrice(parseFloat(e.target.value) || 0)}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Max sélections (1)"
+                    value={currentOptionMaxSelections}
+                    onChange={(e) => setCurrentOptionMaxSelections(parseInt(e.target.value) || 1)}
+                    min="1"
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
+                  onClick={() => {
+                    console.log('Adding option to edit form');
+                    if (currentOption.trim() && currentSubOptions.trim()) {
+                      const subOptions = currentSubOptions.split(',').map(s => {
+                        const trimmed = s.trim();
+                        const priceMatch = trimmed.match(/(.+)\s*\(\+([\d.]+)\)$/);
+                        if (priceMatch) {
+                          return { name: priceMatch[1].trim(), price: parseFloat(priceMatch[2]) };
+                        }
+                        return { name: trimmed };
+                      }).filter(sub => sub.name);
+                      if (subOptions.length > 0) {
+                        setEditForm(prev => ({
+                          ...prev,
+                          options: [...prev.options, {
+                            name: currentOption.trim(),
+                            required: currentOptionRequired,
+                            price: currentOptionPrice,
+                            maxSelections: currentOptionMaxSelections,
+                            subOptions
+                          }]
+                        }));
+                        setCurrentOption("");
+                        setCurrentSubOptions("");
+                        setCurrentOptionRequired(false);
+                        setCurrentOptionPrice(0);
+                        setCurrentOptionMaxSelections(1);
+                      }
+                    }
+                  }}
+                >
+                  Ajouter Option
+                </button>
+              </div>
             </div>
             <div className="flex justify-end gap-2">
               <Button
@@ -560,6 +955,11 @@ export default function Products() {
                       <div className="flex-1">
                         <h3 className="font-medium">{product.name}</h3>
                         <p className="text-sm text-muted-foreground">{product.provider}</p>
+                        {product.options && product.options.length > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Options: {product.options.map(opt => `${opt.name} (${opt.required ? 'Requis' : 'Optionnel'})`).join(', ')}
+                          </p>
+                        )}
                       </div>
                       <Badge variant="secondary" className="text-xs">
                         {product.category}
@@ -636,6 +1036,101 @@ export default function Products() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isOptionsDialogOpen} onOpenChange={setIsOptionsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Gérer les options du produit</DialogTitle>
+            <DialogDescription>
+              Ajoutez ou modifiez les groupes d’options (ex: Taille, Sauce, Suppléments)
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedProduct && (
+            <div className="space-y-4">
+              {optionGroups.length > 0 ? (
+                optionGroups.map((group) => (
+                  <Card key={group._id}>
+                    <CardHeader className="flex justify-between items-center">
+                      <h4 className="font-medium">{group.name}</h4>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteOptionGroup(group._id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap gap-2">
+                        {group.options.map((opt: { _id: string; name: string; price: number }) => (
+                          <Badge key={opt._id} className="flex items-center gap-1">
+                            {opt.name} ({opt.price} DT)
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deleteOption(opt._id)}
+                            >
+                              <Trash2 className="h-3 w-3 text-destructive" />
+                            </Button>
+                          </Badge>
+                        ))}
+                      </div>
+                      <div className="flex gap-2 mt-3">
+                        <Input
+                          placeholder="Nom de l’option"
+                          value={newOption.name}
+                          onChange={(e) =>
+                            setNewOption({ ...newOption, name: e.target.value })
+                          }
+                        />
+                        <Input
+                          placeholder="Prix"
+                          type="number"
+                          value={newOption.price}
+                          onChange={(e) =>
+                            setNewOption({ ...newOption, price: e.target.value })
+                          }
+                        />
+                        <Button onClick={() => addOptionToGroup(group._id)}>
+                          Ajouter
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <p className="text-muted-foreground text-center py-6">
+                  Aucun groupe d’options trouvé
+                </p>
+              )}
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-2">Nouveau groupe</h4>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Nom du groupe (ex: Taille)"
+                    value={newGroup.name}
+                    onChange={(e) =>
+                      setNewGroup({ ...newGroup, name: e.target.value })
+                    }
+                  />
+                  <Button onClick={createOptionGroup}>Créer le groupe</Button>
+                </div>
+              </div>
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleAddSubGroup(optionGroups[0]?._id || '')}
+          >
+            + Ajouter un sous-groupe
+          </Button>
+
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
