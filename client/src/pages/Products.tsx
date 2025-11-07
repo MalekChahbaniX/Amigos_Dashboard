@@ -1,5 +1,11 @@
+/**
+ * Page de gestion des produits avec support pour :
+ * - Saisie d'image via URL
+ * - Téléchargement d'image depuis l'appareil
+ * - Upload automatique vers le serveur
+ */
 import { useState, useEffect } from 'react';
-import { Search, Plus, ImageIcon, Pencil, Trash2 } from 'lucide-react';
+import { Search, Plus, ImageIcon, Pencil, Trash2, Upload } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -72,6 +78,8 @@ interface CreateProductForm {
   stock: string;
   status: 'available' | 'out_of_stock' | 'discontinued';
   image: string;
+  imageFile?: File;
+  imageType: 'url' | 'file';
   sizes?: ProductSize[];
   options: ProductOption[];
 }
@@ -109,6 +117,8 @@ export default function Products() {
     stock: '',
     status: 'available',
     image: '',
+    imageFile: undefined,
+    imageType: 'url',
     options: [],
   });
   const [createForm, setCreateForm] = useState<CreateProductForm>({
@@ -119,6 +129,8 @@ export default function Products() {
     stock: '',
     status: 'available',
     image: '',
+    imageFile: undefined,
+    imageType: 'url',
     sizes: [],
     options: [],
   });
@@ -240,6 +252,7 @@ export default function Products() {
         status: createForm.status,
         providerId: selectedProviderId, // ✅ Ajouter cette ligne
         image: createForm.image || undefined,
+        imageFile: createForm.imageFile,
         sizes: createForm.sizes || undefined,
         options: createForm.options || undefined,
       });
@@ -291,6 +304,8 @@ export default function Products() {
       stock: '',
       status: 'available',
       image: '',
+      imageFile: undefined,
+      imageType: 'url',
       sizes: [],
       options: [],
     });
@@ -315,6 +330,41 @@ export default function Products() {
       console.error('Error fetching providers:', error);
     }
   };
+
+  // Image file handling functions
+  const handleImageFileChange = (file: File, isEdit: boolean = false) => {
+    if (isEdit) {
+      setEditForm(prev => ({
+        ...prev,
+        imageFile: file,
+        image: file.name,
+      }));
+    } else {
+      setCreateForm(prev => ({
+        ...prev,
+        imageFile: file,
+        image: file.name,
+      }));
+    }
+  };
+
+  const handleImageTypeChange = (type: 'url' | 'file', isEdit: boolean = false) => {
+    if (isEdit) {
+      setEditForm(prev => ({
+        ...prev,
+        imageType: type,
+        image: '',
+        imageFile: undefined,
+      }));
+    } else {
+      setCreateForm(prev => ({
+        ...prev,
+        imageType: type,
+        image: '',
+        imageFile: undefined,
+      }));
+    }
+  };
   const handleEditProduct = (product: Product) => {
     setEditingProduct(product);
     setEditForm({
@@ -324,7 +374,9 @@ export default function Products() {
       category: product.category,
       stock: product.stock.toString(),
       status: product.status,
-      image: '', // TODO: Get from API when available
+      image: product.image || '',
+      imageFile: undefined,
+      imageType: 'url',
       sizes: product.sizes || [],
       options: product.options || [],
     });
@@ -365,6 +417,7 @@ export default function Products() {
         status: editForm.status,
         providerId: selectedEditProviderId, // ✅ Ajouter cette ligne
         image: editForm.image || undefined,
+        imageFile: editForm.imageFile,
       });
 
       toast({
@@ -655,15 +708,67 @@ export default function Products() {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="image">Image URL</Label>
-                <Input
-                  id="image"
-                  value={createForm.image}
-                  onChange={e =>
-                    setCreateForm(prev => ({ ...prev, image: e.target.value }))
-                  }
-                  placeholder="https://example.com/image.jpg"
-                />
+                <Label>Image du produit</Label>
+                <div className="space-y-3">
+                  {/* Type selection */}
+                  <div className="flex gap-4">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="url-type"
+                        checked={createForm.imageType === 'url'}
+                        onChange={() => handleImageTypeChange('url')}
+                      />
+                      <Label htmlFor="url-type">URL</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="file-type"
+                        checked={createForm.imageType === 'file'}
+                        onChange={() => handleImageTypeChange('file')}
+                      />
+                      <Label htmlFor="file-type">Fichier</Label>
+                    </div>
+                  </div>
+
+                  {/* URL Input */}
+                  {createForm.imageType === 'url' && (
+                    <Input
+                      id="image"
+                      value={createForm.image}
+                      onChange={e =>
+                        setCreateForm(prev => ({ ...prev, image: e.target.value }))
+                      }
+                      placeholder="https://example.com/image.jpg"
+                    />
+                  )}
+
+                  {/* File Input */}
+                  {createForm.imageType === 'file' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              handleImageFileChange(file);
+                            }
+                          }}
+                        />
+                        <Upload className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      {createForm.imageFile && (
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <ImageIcon className="h-3 w-3" />
+                          Fichier sélectionné: {createForm.imageFile.name}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Options Section */}
@@ -951,15 +1056,67 @@ export default function Products() {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="edit-image">Image URL</Label>
-                <Input
-                  id="edit-image"
-                  value={editForm.image}
-                  onChange={e =>
-                    setEditForm(prev => ({ ...prev, image: e.target.value }))
-                  }
-                  placeholder="https://example.com/image.jpg"
-                />
+                <Label>Image du produit</Label>
+                <div className="space-y-3">
+                  {/* Type selection */}
+                  <div className="flex gap-4">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="edit-url-type"
+                        checked={editForm.imageType === 'url'}
+                        onChange={() => handleImageTypeChange('url', true)}
+                      />
+                      <Label htmlFor="edit-url-type">URL</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="edit-file-type"
+                        checked={editForm.imageType === 'file'}
+                        onChange={() => handleImageTypeChange('file', true)}
+                      />
+                      <Label htmlFor="edit-file-type">Fichier</Label>
+                    </div>
+                  </div>
+
+                  {/* URL Input */}
+                  {editForm.imageType === 'url' && (
+                    <Input
+                      id="edit-image"
+                      value={editForm.image}
+                      onChange={e =>
+                        setEditForm(prev => ({ ...prev, image: e.target.value }))
+                      }
+                      placeholder="https://example.com/image.jpg"
+                    />
+                  )}
+
+                  {/* File Input */}
+                  {editForm.imageType === 'file' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              handleImageFileChange(file, true);
+                            }
+                          }}
+                        />
+                        <Upload className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      {editForm.imageFile && (
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <ImageIcon className="h-3 w-3" />
+                          Fichier sélectionné: {editForm.imageFile.name}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Edit Options Section */}

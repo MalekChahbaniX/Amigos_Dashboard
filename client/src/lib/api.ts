@@ -1,6 +1,6 @@
 // API Configuration
-//const API_BASE_URL = 'http://localhost:5000/api';
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://amigos-backend-ga2t.onrender.com/api';
+const API_BASE_URL = 'http://localhost:5000/api';
+//const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://amigos-backend-ga2t.onrender.com/api';
 
 interface LoginResponse {
   _id: string;
@@ -397,6 +397,7 @@ class ApiService {
       price: number;
       stock: number;
       status: "available" | "out_of_stock" | "discontinued";
+      image?: string;
       options?: Array<{
         name: string;
         required: boolean;
@@ -447,6 +448,44 @@ class ApiService {
     return this.request(`/products/${id}`);
   }
 
+  // Upload file method
+  private async uploadFile(file: File, endpoint: string): Promise<{ imageUrl: string }> {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const token = localStorage.getItem('authToken');
+    const url = `${API_BASE_URL}${endpoint}`;
+
+    const config: RequestInit = {
+      method: 'POST',
+      body: formData,
+    };
+
+    if (token) {
+      config.headers = {
+        Authorization: `Bearer ${token}`,
+      };
+    }
+
+    try {
+      const response = await fetch(url, config);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('File upload failed:', error);
+      throw error;
+    }
+  }
+
+  async uploadProductImage(file: File): Promise<{ imageUrl: string }> {
+    return this.uploadFile(file, '/upload/product');
+  }
+
   async createProduct(productData: {
     name: string;
     description?: string;
@@ -456,6 +495,7 @@ class ApiService {
     status?: "available" | "out_of_stock" | "discontinued";
     providerId: string;
     image?: string;
+    imageFile?: File;
     sizes?: Array<{
       name: string;
       price: number;
@@ -480,8 +520,7 @@ class ApiService {
       price: number;
       stock: number;
       status: "available" | "out_of_stock" | "discontinued";
-        providerId?: string; // ✅ Ajouter cette ligne
-
+      providerId?: string;
       image?: string;
       sizes?: Array<{
         name: string;
@@ -499,9 +538,24 @@ class ApiService {
       }>;
     };
   }> {
+    // If there's a file, upload it first
+    let finalProductData = { ...productData };
+    
+    if (productData.imageFile) {
+      try {
+        const uploadResult = await this.uploadProductImage(productData.imageFile);
+        finalProductData.image = uploadResult.imageUrl;
+      } catch (error) {
+        throw new Error('Failed to upload image');
+      }
+    }
+
+    // Remove the file from data before sending to API
+    const { imageFile, ...apiData } = finalProductData;
+    
     return this.request('/products', {
       method: 'POST',
-      body: JSON.stringify(productData),
+      body: JSON.stringify(apiData),
     });
   }
 
@@ -512,8 +566,9 @@ class ApiService {
     category?: string;
     stock?: number;
     status?: "available" | "out_of_stock" | "discontinued";
-      providerId?: string; // ✅ Ajouter cette ligne
+    providerId?: string;
     image?: string;
+    imageFile?: File;
     sizes?: Array<{
       name: string;
       price: number;
@@ -555,9 +610,24 @@ class ApiService {
       }>;
     };
   }> {
+    // If there's a file, upload it first
+    let finalProductData = { ...productData };
+    
+    if (productData.imageFile) {
+      try {
+        const uploadResult = await this.uploadProductImage(productData.imageFile);
+        finalProductData.image = uploadResult.imageUrl;
+      } catch (error) {
+        throw new Error('Failed to upload image');
+      }
+    }
+
+    // Remove the file from data before sending to API
+    const { imageFile, ...apiData } = finalProductData;
+    
     return this.request(`/products/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(productData),
+      body: JSON.stringify(apiData),
     });
   }
 
