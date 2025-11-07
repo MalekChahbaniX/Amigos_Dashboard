@@ -480,6 +480,8 @@ class ApiService {
       price: number;
       stock: number;
       status: "available" | "out_of_stock" | "discontinued";
+        providerId?: string; // ✅ Ajouter cette ligne
+
       image?: string;
       sizes?: Array<{
         name: string;
@@ -510,6 +512,7 @@ class ApiService {
     category?: string;
     stock?: number;
     status?: "available" | "out_of_stock" | "discontinued";
+      providerId?: string; // ✅ Ajouter cette ligne
     image?: string;
     sizes?: Array<{
       name: string;
