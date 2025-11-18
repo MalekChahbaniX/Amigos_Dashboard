@@ -1,6 +1,6 @@
 // API Configuration
-// const API_BASE_URL = 'http://localhost:5000/api';
-const API_BASE_URL = import.meta.env.VITE_API_URL ;
+const API_BASE_URL = 'http://localhost:5000/api';
+//const API_BASE_URL = import.meta.env.VITE_API_URL ;
 
 interface LoginResponse {
   _id: string;
@@ -16,6 +16,40 @@ interface LoginResponse {
 interface LoginRequest {
   email: string;
   password: string;
+}
+
+interface OptionGroup {
+  _id: string;
+  name: string;
+  description?: string;
+  min?: number;
+  max?: number;
+  options: Array<{
+    _id: string;
+    option: string;
+    name: string;
+    price: number;
+    image?: string;
+  }>;
+  image?: string;
+  storeId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ProductOption {
+  _id: string;
+  name: string;
+  price: number;
+  image?: string;
+  availability?: boolean;
+  dineIn?: boolean;
+  delivery?: boolean;
+  takeaway?: boolean;
+  optionGroups?: string[];
+  storeId?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 class ApiService {
@@ -665,53 +699,10 @@ class ApiService {
     return this.request(`/option-groups?product=${productId}`);
   }
 
-  async createOptionGroup(groupData: {
-    name: string;
-    description?: string;
-    image?: string;
-    productId: string;
-  }): Promise<{
-    message: string;
-    group: {
-      _id: string;
-      name: string;
-      description?: string;
-    };
-  }> {
-    return this.request('/option-groups', {
-      method: 'POST',
-      body: JSON.stringify(groupData),
-    });
-  }
-
-  async addOptionToGroup(groupId: string, optionData: {
-    name: string;
-    price: number;
-    image?: string;
-  }): Promise<{
-    message: string;
-  }> {
-    return this.request(`/product-options`, {
-      method: 'POST',
-      body: JSON.stringify({
-        groupId,
-        ...optionData
-      }),
-    });
-  }
-
   async deleteOptionGroup(groupId: string): Promise<{
     message: string;
   }> {
     return this.request(`/option-groups/${groupId}`, {
-      method: 'DELETE',
-    });
-  }
-
-  async deleteProductOption(optionId: string): Promise<{
-    message: string;
-  }> {
-    return this.request(`/product-options/${optionId}`, {
       method: 'DELETE',
     });
   }
@@ -1370,6 +1361,170 @@ class ApiService {
       body: JSON.stringify({ activeZones }),
     });
   }
+
+
+
+// Add these interfaces at the top of your api.ts file
+
+
+// Then add these methods to the ApiService class (after your existing methods):
+
+// ===== OPTION GROUPS MANAGEMENT API METHODS =====
+
+// Get all option groups
+async getOptionGroups(productId?: string, storeId?: string): Promise<{
+  data: OptionGroup[];
+}> {
+  const params = new URLSearchParams();
+  if (productId) params.append('product', productId);
+  if (storeId) params.append('storeId', storeId);
+  params.append('_t', Date.now().toString());
+  
+  const result = await this.request(`/option-groups?${params}`);
+  return { data: Array.isArray(result) ? result : [] };
+}
+
+// Get option group by ID
+async getOptionGroupById(id: string): Promise<OptionGroup> {
+  return this.request(`/option-groups/${id}`);
+}
+
+// Create option group
+async createOptionGroup(groupData: {
+  name: string;
+  description?: string;
+  min?: number;
+  max?: number;
+  image?: string;
+  productId?: string;
+  storeId?: string;
+}): Promise<{
+  message: string;
+  group: OptionGroup;
+}> {
+  return this.request('/option-groups', {
+    method: 'POST',
+    body: JSON.stringify(groupData),
+  });
+}
+
+// Update option group
+async updateOptionGroup(id: string, groupData: {
+  name?: string;
+  description?: string;
+  min?: number;
+  max?: number;
+  image?: string;
+}): Promise<{
+  message: string;
+  group: OptionGroup;
+}> {
+  return this.request(`/option-groups/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(groupData),
+  });
+}
+
+// Add option to group
+async addOptionToGroup(groupId: string, optionData: {
+  optionId: string;
+  name: string;
+  price: number;
+  image?: string;
+}): Promise<{
+  message: string;
+  group: OptionGroup;
+}> {
+  return this.request(`/option-groups/${groupId}/options`, {
+    method: 'POST',
+    body: JSON.stringify(optionData),
+  });
+}
+
+// Remove option from group
+async removeOptionFromGroup(groupId: string, optionId: string): Promise<{
+  message: string;
+}> {
+  return this.request(`/option-groups/${groupId}/options/${optionId}`, {
+    method: 'DELETE',
+  });
+}
+
+// ===== PRODUCT OPTIONS MANAGEMENT API METHODS =====
+
+// Get all product options
+async getProductOptions(storeId?: string, availability?: boolean): Promise<{
+  data: ProductOption[];
+}> {
+  const params = new URLSearchParams();
+  if (storeId) params.append('storeId', storeId);
+  if (availability !== undefined) params.append('availability', availability.toString());
+  params.append('_t', Date.now().toString());
+  
+  const result = await this.request(`/product-options?${params}`);
+  return { data: Array.isArray(result) ? result : [] };
+}
+
+// Get product option by ID
+async getProductOptionById(id: string): Promise<ProductOption> {
+  return this.request(`/product-options/${id}`);
+}
+
+// Create product option
+async createProductOption(optionData: {
+  name: string;
+  price: number;
+  image?: string;
+  availability?: boolean;
+  dineIn?: boolean;
+  delivery?: boolean;
+  takeaway?: boolean;
+  groupId?: string;
+  storeId?: string;
+}): Promise<{
+  message: string;
+  option: ProductOption;
+}> {
+  return this.request('/product-options', {
+    method: 'POST',
+    body: JSON.stringify(optionData),
+  });
+}
+
+// Update product option
+async updateProductOption(id: string, optionData: {
+  name?: string;
+  price?: number;
+  image?: string;
+  availability?: boolean;
+  dineIn?: boolean;
+  delivery?: boolean;
+  takeaway?: boolean;
+}): Promise<{
+  message: string;
+  option: ProductOption;
+}> {
+  return this.request(`/product-options/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(optionData),
+  });
+}
+
+// Delete product option
+async deleteProductOption(id: string): Promise<{
+  message: string;
+}> {
+  return this.request(`/product-options/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+
+
+
+
+
+
 }
 
 export const apiService = new ApiService();

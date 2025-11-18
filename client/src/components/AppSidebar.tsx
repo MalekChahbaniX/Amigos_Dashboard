@@ -56,6 +56,16 @@ const menuItems = [
     icon: Package,
   },
   {
+    title: "Option Groups",
+    url: "/OptionGroups",
+    icon: Package,
+  },
+  {
+    title: "All Options",
+    url: "/AllOptions",
+    icon: Package,
+  },
+  {
     title: "Zones",
     url: "/zones",
     icon: MapPin,

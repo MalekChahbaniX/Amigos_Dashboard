@@ -1,9 +1,3 @@
-/**
- * Page de gestion des produits avec support pour :
- * - Saisie d'image via URL
- * - Téléchargement d'image depuis l'appareil
- * - Upload automatique vers le serveur
- */
 import { useState, useEffect } from 'react';
 import { Search, Plus, ImageIcon, Pencil, Trash2, Upload } from 'lucide-react';
 import { Input } from '@/components/ui/input';

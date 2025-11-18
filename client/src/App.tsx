@@ -20,6 +20,8 @@ import { Zones } from "@/pages/Zones";
 import { Promotions } from "@/pages/Promotions";
 import { Configuration } from "@/pages/Configuration";
 import NotFound from "@/pages/not-found";
+import AllOptionsPage from "./pages/AllOptions";
+import OptionGroupsPage from "./pages/OptionGroups";
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
   const style = {
@@ -73,6 +75,16 @@ function Router() {
       <Route path="/providers">
         <DashboardLayout>
           <Providers />
+        </DashboardLayout>
+      </Route>
+      <Route path="/OptionGroups">
+        <DashboardLayout>
+          <OptionGroupsPage />
+        </DashboardLayout>
+      </Route>
+      <Route path="/AllOptions">
+        <DashboardLayout>
+          <AllOptionsPage />
         </DashboardLayout>
       </Route>
       <Route path="/products">
