@@ -35,27 +35,43 @@ interface OptionGroup {
 }
 
 interface Product {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  category: string;
-  image?: string;
-  status: string;
-  stock?: number;
-  provider?: string;
-  providerId?: string;
-  optionGroups?: string[];
-  availability?: boolean;
-  dineIn?: boolean;
-  delivery?: boolean;
-  takeaway?: boolean;
-}
+   id: string;
+   name: string;
+   description?: string;
+   price: number;
+   category: string;
+   image?: string;
+   status: "available" | "out_of_stock" | "discontinued";
+   stock?: number;
+   provider?: string;
+   providerId?: string;
+   optionGroups?: string[];
+   availability?: boolean;
+   dineIn?: boolean;
+   delivery?: boolean;
+   takeaway?: boolean;
+ }
 
 interface ProductFormProps {
   product?: Product | null;
   onSuccess: () => void;
   onCancel: () => void;
+}
+
+interface FormDataType {
+  name: string;
+  description: string;
+  price: string;
+  category: string;
+  stock: string;
+  image: string;
+  status: "available" | "out_of_stock" | "discontinued";
+  providerId: string;
+  selectedOptionGroups: string[];
+  availability: boolean;
+  dineIn: boolean;
+  delivery: boolean;
+  takeaway: boolean;
 }
 
 const categories = [
@@ -81,7 +97,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   const [optionGroups, setOptionGroups] = useState<OptionGroup[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormDataType>({
     name: '',
     description: '',
     price: '0',
@@ -188,7 +204,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         stock: parseInt(formData.stock) || 0,
         status: formData.status,
         image: formData.image,
-        providerId: formData.providerId || undefined,
+        providerId: formData.providerId,
         optionGroups: formData.selectedOptionGroups,
         availability: formData.availability,
         dineIn: formData.dineIn,
@@ -305,7 +321,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                 <Label htmlFor="status">Statut</Label>
                 <Select
                   value={formData.status}
-                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                  onValueChange={(value) => setFormData({ ...formData, status: value as "available" | "out_of_stock" | "discontinued" })}
                 >
                   <SelectTrigger>
                     <SelectValue />
