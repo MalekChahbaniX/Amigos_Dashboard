@@ -1,6 +1,6 @@
 // API Configuration
-// const API_BASE_URL = 'http://localhost:5000/api';
-const API_BASE_URL ='http://amigos-delivery.duckdns.org/api';
+const API_BASE_URL = 'http://localhost:5000/api';
+//const API_BASE_URL ='http://amigos-delivery.duckdns.org/api';
 
 interface LoginResponse {
   _id: string;
@@ -389,6 +389,35 @@ class ApiService {
   }> {
     return this.request('/providers', {
       method: 'POST',
+      body: JSON.stringify(providerData),
+    });
+  }
+
+  async updateProvider(id: string, providerData: {
+    name: string;
+    type: "restaurant" | "course" | "pharmacy";
+    phone: string;
+    address: string;
+    email?: string;
+    description?: string;
+  }): Promise<{
+    message: string;
+    provider: {
+      id: string;
+      name: string;
+      type: "restaurant" | "course" | "pharmacy";
+      category: string;
+      phone: string;
+      address: string;
+      email?: string;
+      description?: string;
+      totalOrders: number;
+      rating: number;
+      status: "active" | "inactive";
+    };
+  }> {
+    return this.request(`/providers/${id}`, {
+      method: 'PUT',
       body: JSON.stringify(providerData),
     });
   }

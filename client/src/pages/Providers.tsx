@@ -7,6 +7,7 @@ import {
   ShoppingCart,
   Eye,
   Pencil,
+  Trash2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -73,8 +74,19 @@ export default function Providers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [createForm, setCreateForm] = useState<CreateProviderForm>({
+    name: '',
+    type: 'restaurant',
+    phone: '',
+    address: '',
+    email: '',
+    description: '',
+  });
+  const [editForm, setEditForm] = useState<CreateProviderForm>({
     name: '',
     type: 'restaurant',
     phone: '',
@@ -164,6 +176,86 @@ export default function Providers() {
       email: '',
       description: '',
     });
+  };
+
+  const handleViewProvider = async (provider: Provider) => {
+    setSelectedProvider(provider);
+    setIsViewDialogOpen(true);
+  };
+
+  const handleEditProvider = (provider: Provider) => {
+    setSelectedProvider(provider);
+    setEditForm({
+      name: provider.name,
+      type: provider.type,
+      phone: provider.phone,
+      address: provider.address,
+      email: '', // Will be populated from API if needed
+      description: '', // Will be populated from API if needed
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateProvider = async () => {
+    if (!selectedProvider || !editForm.name || !editForm.phone || !editForm.address) {
+      toast({
+        title: 'Erreur',
+        description: 'Veuillez remplir tous les champs obligatoires',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await apiService.updateProvider(selectedProvider.id, {
+        name: editForm.name,
+        type: editForm.type,
+        phone: editForm.phone,
+        address: editForm.address,
+        email: editForm.email || undefined,
+        description: editForm.description || undefined,
+      });
+
+      toast({
+        title: 'Succès',
+        description: response.message || 'Prestataire modifié avec succès',
+      });
+
+      setIsEditDialogOpen(false);
+      fetchProviders();
+    } catch (error: any) {
+      console.error('Error updating provider:', error);
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Erreur lors de la modification du prestataire',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteProvider = async (provider: Provider) => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer le prestataire "${provider.name}" ?`)) {
+      return;
+    }
+
+    try {
+      const response = await apiService.deleteProvider(provider.id);
+      toast({
+        title: 'Succès',
+        description: response.message || 'Prestataire supprimé avec succès',
+      });
+      fetchProviders();
+    } catch (error: any) {
+      console.error('Error deleting provider:', error);
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Erreur lors de la suppression du prestataire',
+        variant: 'destructive',
+      });
+    }
   };
 
   if (loading) {
@@ -352,6 +444,249 @@ export default function Providers() {
                 </div>
               </DialogContent>
             </Dialog>
+
+            {/* View Provider Dialog */}
+            <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+              <DialogContent className="w-[95vw] xs:w-[90vw] sm:max-w-[500px] max-h-[85vh] xs:max-h-[90vh] overflow-y-auto mx-4 xs:mx-auto">
+                <DialogHeader className="space-y-2 xs:space-y-3 pb-2">
+                  <DialogTitle className="text-lg xs:text-xl sm:text-2xl leading-tight">
+                    Détails du prestataire
+                  </DialogTitle>
+                  <DialogDescription className="text-sm xs:text-base">
+                    Informations complètes du prestataire
+                  </DialogDescription>
+                </DialogHeader>
+                {selectedProvider && (
+                  <div className="grid gap-4 xs:gap-6 py-2 xs:py-4 space-y-4">
+                    <div className="flex items-center gap-3 sm:gap-4 mb-4">
+                      <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Store className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-lg sm:text-xl truncate">
+                          {selectedProvider.name}
+                        </h3>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {selectedProvider.address}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 xs:gap-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Type</p>
+                          <Badge variant="secondary" className="text-xs px-2 py-1">
+                            {typeLabels[selectedProvider.type as keyof typeof typeLabels]}
+                          </Badge>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Statut</p>
+                          <Badge
+                            className={`text-xs px-2 py-1 ${
+                              selectedProvider.status === 'active'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-gray-200 text-gray-600'
+                            }`}
+                          >
+                            {selectedProvider.status === 'active' ? 'Actif' : 'Inactif'}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Téléphone</p>
+                        <p className="font-medium">{selectedProvider.phone}</p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Adresse</p>
+                        <p className="font-medium">{selectedProvider.address}</p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Commandes totales</p>
+                          <p className="font-semibold text-lg">{selectedProvider.totalOrders || 0}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Note moyenne</p>
+                          <p className="font-semibold text-lg">
+                            {selectedProvider.rating ? `${selectedProvider.rating} ⭐` : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div className="flex flex-col-reverse xs:flex-row justify-end gap-2 xs:gap-3 pt-4 xs:pt-6">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsViewDialogOpen(false)}
+                    className="w-full xs:w-auto min-h-[44px] xs:min-h-[40px] sm:min-h-[36px] text-sm xs:text-base px-4 xs:px-6"
+                  >
+                    Fermer
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Edit Provider Dialog */}
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+              <DialogContent className="w-[95vw] xs:w-[90vw] sm:max-w-[425px] max-h-[85vh] xs:max-h-[90vh] overflow-y-auto mx-4 xs:mx-auto">
+                <DialogHeader className="space-y-2 xs:space-y-3 pb-2">
+                  <DialogTitle className="text-lg xs:text-xl sm:text-2xl leading-tight">
+                    Modifier le prestataire
+                  </DialogTitle>
+                  <DialogDescription className="text-sm xs:text-base">
+                    Modifier les informations du prestataire
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-3 xs:gap-4 py-2 xs:py-4 space-y-4">
+                  <div className="grid gap-2 xs:gap-3">
+                    <Label
+                      htmlFor="edit-provider-name"
+                      className="text-sm xs:text-base font-medium"
+                    >
+                      Nom du prestataire *
+                    </Label>
+                    <Input
+                      id="edit-provider-name"
+                      value={editForm.name}
+                      onChange={e =>
+                        setEditForm(prev => ({
+                          ...prev,
+                          name: e.target.value,
+                        }))
+                      }
+                      placeholder="Ex: Pizza House"
+                      className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
+                    />
+                  </div>
+                  <div className="grid gap-2 xs:gap-3">
+                    <Label
+                      htmlFor="edit-provider-type"
+                      className="text-sm xs:text-base font-medium"
+                    >
+                      Type *
+                    </Label>
+                    <Select
+                      value={editForm.type}
+                      onValueChange={(value: any) =>
+                        setEditForm(prev => ({ ...prev, type: value }))
+                      }
+                    >
+                      <SelectTrigger className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="restaurant">Restaurant</SelectItem>
+                        <SelectItem value="course">Supermarché</SelectItem>
+                        <SelectItem value="pharmacy">Pharmacie</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 xs:gap-3">
+                    <Label
+                      htmlFor="edit-provider-phone"
+                      className="text-sm xs:text-base font-medium"
+                    >
+                      Téléphone *
+                    </Label>
+                    <Input
+                      id="edit-provider-phone"
+                      value={editForm.phone}
+                      onChange={e =>
+                        setEditForm(prev => ({
+                          ...prev,
+                          phone: e.target.value,
+                        }))
+                      }
+                      placeholder="Ex: +216 71 123 456"
+                      className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
+                    />
+                  </div>
+                  <div className="grid gap-2 xs:gap-3">
+                    <Label
+                      htmlFor="edit-provider-address"
+                      className="text-sm xs:text-base font-medium"
+                    >
+                      Adresse *
+                    </Label>
+                    <Input
+                      id="edit-provider-address"
+                      value={editForm.address}
+                      onChange={e =>
+                        setEditForm(prev => ({
+                          ...prev,
+                          address: e.target.value,
+                        }))
+                      }
+                      placeholder="Ex: 25 Avenue Habib Bourguiba, Tunis"
+                      className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
+                    />
+                  </div>
+                  <div className="grid gap-2 xs:gap-3">
+                    <Label
+                      htmlFor="edit-provider-email"
+                      className="text-sm xs:text-base font-medium"
+                    >
+                      Email
+                    </Label>
+                    <Input
+                      id="edit-provider-email"
+                      type="email"
+                      value={editForm.email}
+                      onChange={e =>
+                        setEditForm(prev => ({
+                          ...prev,
+                          email: e.target.value,
+                        }))
+                      }
+                      placeholder="contact@pizzahouse.tn"
+                      className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
+                    />
+                  </div>
+                  <div className="grid gap-2 xs:gap-3">
+                    <Label
+                      htmlFor="edit-provider-description"
+                      className="text-sm xs:text-base font-medium"
+                    >
+                      Description
+                    </Label>
+                    <Textarea
+                      id="edit-provider-description"
+                      value={editForm.description}
+                      onChange={e =>
+                        setEditForm(prev => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                      placeholder="Description du prestataire..."
+                      className="min-h-[100px] xs:min-h-[120px] text-sm xs:text-base resize-none"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col-reverse xs:flex-row justify-end gap-2 xs:gap-3 pt-4 xs:pt-6">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsEditDialogOpen(false)}
+                    className="w-full xs:w-auto min-h-[44px] xs:min-h-[40px] sm:min-h-[36px] text-sm xs:text-base px-4 xs:px-6"
+                    disabled={isSubmitting}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    onClick={handleUpdateProvider}
+                    disabled={isSubmitting}
+                    className="w-full xs:w-auto min-h-[44px] xs:min-h-[40px] sm:min-h-[36px] text-sm xs:text-base px-4 xs:px-6 touch-manipulation"
+                  >
+                    {isSubmitting ? 'Modification...' : 'Modifier le prestataire'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -407,17 +742,6 @@ export default function Providers() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {/* <div className="flex justify-center mb-6">
-    <div className="relative w-full sm:max-w-md">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-      <Input
-        placeholder="Rechercher un prestataire..."
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        className="pl-9 w-full"
-      />
-    </div>
-  </div> */}
 
                   {providers && providers.length > 0 ? (
                     <div className="grid gap-4 sm:gap-5 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -501,6 +825,7 @@ export default function Providers() {
                                 variant="outline"
                                 size="icon"
                                 className="h-8 w-8 sm:h-9 sm:w-9"
+                                onClick={() => handleViewProvider(provider)}
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
@@ -508,8 +833,17 @@ export default function Providers() {
                                 variant="outline"
                                 size="icon"
                                 className="h-8 w-8 sm:h-9 sm:w-9"
+                                onClick={() => handleEditProvider(provider)}
                               >
                                 <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 sm:h-9 sm:w-9 text-red-600 hover:text-red-700"
+                                onClick={() => handleDeleteProvider(provider)}
+                              >
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
                           </Card>
