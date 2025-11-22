@@ -486,25 +486,26 @@ export default function Products() {
   };
 
   // 🔹 Ajouter une option dans un groupe
-  const addOptionToGroup = async (groupId: string) => {
-    if (!newOption.name || !selectedProduct) return;
-    try {
-      await apiService.addOptionToGroup(groupId, {
-        name: newOption.name,
-        price: parseFloat(newOption.price) || 0,
-        image: newOption.image || undefined,
-      });
-      toast({ title: 'Succès', description: 'Option ajoutée' });
-      setNewOption({ name: '', price: '', image: '' });
-      fetchOptionGroups(selectedProduct.id);
-    } catch (err) {
-      toast({
-        title: 'Erreur',
-        description: 'Échec d’ajout d’option',
-        variant: 'destructive',
-      });
-    }
-  };
+   const addOptionToGroup = async (groupId: string) => {
+     if (!newOption.name || !selectedProduct) return;
+     try {
+       await apiService.createProductOption({
+         name: newOption.name,
+         price: parseFloat(newOption.price) || 0,
+         image: newOption.image || undefined,
+         groupId,
+       });
+       toast({ title: 'Succès', description: 'Option ajoutée' });
+       setNewOption({ name: '', price: '', image: '' });
+       fetchOptionGroups(selectedProduct.id);
+     } catch (err) {
+       toast({
+         title: 'Erreur',
+         description: 'Échec d’ajout d’option',
+         variant: 'destructive',
+       });
+     }
+   };
 
   // 🔹 Supprimer un groupe
   const deleteOptionGroup = async (groupId: string) => {
