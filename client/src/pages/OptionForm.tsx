@@ -1,13 +1,11 @@
 // src/components/admin/OptionForm.tsx
-import { useState, useEffect } from 'react';
-import { Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { apiService } from '@/lib/api';
+import { Upload, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface OptionFormProps {
   option?: {
@@ -29,9 +27,6 @@ export default function OptionForm({ option, groupId, onSuccess, onCancel }: Opt
     price: '0',
     image: '',
     availability: true,
-    dineIn: true,
-    delivery: true,
-    takeaway: true,
   });
 
   useEffect(() => {
@@ -41,9 +36,6 @@ export default function OptionForm({ option, groupId, onSuccess, onCancel }: Opt
         price: option.price?.toString() || '0',
         image: option.image || '',
         availability: true,
-        dineIn: true,
-        delivery: true,
-        takeaway: true,
       });
     }
   }, [option]);
@@ -78,9 +70,6 @@ export default function OptionForm({ option, groupId, onSuccess, onCancel }: Opt
         price: parseFloat(formData.price) || 0,
         image: formData.image,
         availability: formData.availability,
-        dineIn: formData.dineIn,
-        delivery: formData.delivery,
-        takeaway: formData.takeaway,
         groupId: groupId || undefined,
       };
 
@@ -166,46 +155,6 @@ export default function OptionForm({ option, groupId, onSuccess, onCancel }: Opt
           )}
         </div>
       </div>
-
-      <Card className="bg-gray-50">
-        <CardHeader>
-          <CardTitle className="text-base">Disponibilité</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="availability">Disponible</Label>
-            <Switch
-              id="availability"
-              checked={formData.availability}
-              onCheckedChange={(checked) => setFormData({ ...formData, availability: checked })}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="dineIn">Dine-in</Label>
-            <Switch
-              id="dineIn"
-              checked={formData.dineIn}
-              onCheckedChange={(checked) => setFormData({ ...formData, dineIn: checked })}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="delivery">Delivery</Label>
-            <Switch
-              id="delivery"
-              checked={formData.delivery}
-              onCheckedChange={(checked) => setFormData({ ...formData, delivery: checked })}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="takeaway">Takeaway</Label>
-            <Switch
-              id="takeaway"
-              checked={formData.takeaway}
-              onCheckedChange={(checked) => setFormData({ ...formData, takeaway: checked })}
-            />
-          </div>
-        </CardContent>
-      </Card>
 
       <div className="flex gap-3">
         <Button type="button" variant="outline" onClick={onCancel} className="flex-1">

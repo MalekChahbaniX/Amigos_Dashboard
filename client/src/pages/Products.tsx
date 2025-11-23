@@ -22,7 +22,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { apiService } from '@/lib/api';
+import { apiService, OptionGroup } from '@/lib/api';
 
 interface ProductSize {
   name: string;
@@ -78,18 +78,6 @@ interface CreateProductForm {
   options: ProductOption[];
 }
 
-interface OptionGroup {
-  _id: string;
-  name: string;
-  description?: string;
-  image?: string;
-  options: Array<{
-    _id: string;
-    name: string;
-    price: number;
-    image?: string;
-  }>;
-}
 
 export default function Products() {
   const { toast } = useToast();
@@ -158,6 +146,10 @@ export default function Products() {
   const [selectedEditProviderId, setSelectedEditProviderId] =
     useState<string>('');
 
+  const [availableOptionGroups, setAvailableOptionGroups] = useState<OptionGroup[]>([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  const [editSelectedGroupIds, setEditSelectedGroupIds] = useState<string[]>([]);
+
   const fetchProducts = async (page = 1) => {
     try {
       setLoading(true);
@@ -186,6 +178,7 @@ export default function Products() {
   useEffect(() => {
     fetchProducts(1);
     fetchProviders(); // ✅ Ajouter cette ligne
+    fetchAvailableOptionGroups();
   }, [searchQuery, categoryFilter]);
 
   const handleDeleteProduct = async (productId: string) => {
@@ -219,6 +212,20 @@ export default function Products() {
     }
 
     setIsSubmitting(true);
+    const options = selectedGroupIds.map(groupId => {
+      const group = availableOptionGroups.find(g => g._id === groupId);
+      if (!group) return null;
+      return {
+        name: group.name,
+        required: false,
+        price: 0,
+        maxSelections: group.max || 1,
+        subOptions: group.options.map(o => ({
+          name: o.name,
+          price: o.price,
+        })),
+      };
+    }).filter(Boolean) as ProductOption[];
     try {
       // For now, use a default provider ID - in a real app, this would come from a provider selection
       // First, let's check if any providers exist
@@ -248,7 +255,7 @@ export default function Products() {
         image: createForm.image || undefined,
         imageFile: createForm.imageFile,
         sizes: createForm.sizes || undefined,
-        options: createForm.options || undefined,
+        options: options || undefined,
       });
 
       console.log('Product created successfully:', response);
@@ -309,6 +316,7 @@ export default function Products() {
     setCurrentOptionPrice(0);
     setCurrentOptionMaxSelections(1);
     setSelectedProviderId(''); // ✅ Ajouter cette ligne
+    setSelectedGroupIds([]);
   };
   const fetchProviders = async () => {
     try {
@@ -322,6 +330,15 @@ export default function Products() {
       );
     } catch (error) {
       console.error('Error fetching providers:', error);
+    }
+  };
+
+  const fetchAvailableOptionGroups = async () => {
+    try {
+      const response = await apiService.getOptionGroups();
+      setAvailableOptionGroups(response.data);
+    } catch (error) {
+      console.error('Error fetching option groups:', error);
     }
   };
 
@@ -382,6 +399,7 @@ export default function Products() {
     setIsEditDialogOpen(true);
     const providerMatch = providers.find(p => p.name === product.provider);
     setSelectedEditProviderId(providerMatch?.id || '');
+    setEditSelectedGroupIds([]);
     setIsEditDialogOpen(true);
   };
 
@@ -401,6 +419,20 @@ export default function Products() {
     }
 
     setIsSubmitting(true);
+    const options = editSelectedGroupIds.map(groupId => {
+      const group = availableOptionGroups.find(g => g._id === groupId);
+      if (!group) return null;
+      return {
+        name: group.name,
+        required: false,
+        price: 0,
+        maxSelections: group.max || 1,
+        subOptions: group.options.map(o => ({
+          name: o.name,
+          price: o.price,
+        })),
+      };
+    }).filter(Boolean) as ProductOption[];
     try {
       await apiService.updateProduct(editingProduct.id, {
         name: editForm.name,
@@ -412,6 +444,7 @@ export default function Products() {
         providerId: selectedEditProviderId, // ✅ Ajouter cette ligne
         image: editForm.image || undefined,
         imageFile: editForm.imageFile,
+        options: options || undefined,
       });
 
       toast({
@@ -452,7 +485,7 @@ export default function Products() {
   const fetchOptionGroups = async (productId: string) => {
     try {
       const res = await apiService.getOptionGroupsByProduct(productId);
-      setOptionGroups(res || []);
+      setOptionGroups(res as OptionGroup[] || []);
     } catch (error) {
       console.error('Error fetching option groups:', error);
       toast({
@@ -768,151 +801,30 @@ export default function Products() {
 
               {/* Options Section */}
               <div className="grid gap-4">
-                <Label>Options (optionnel)</Label>
-                <div className="space-y-2">
-                  {createForm.options.map((option, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-2 p-2 border rounded"
-                    >
-                      <span className="font-medium">{option.name}:</span>
-                      <span className="text-sm text-muted-foreground">
-                        {option.required ? 'Requis' : 'Optionnel'} - Prix: €
-                        {option.price || 0} - Max: {option.maxSelections} -{' '}
-                        {option.subOptions
-                          .map(
-                            sub =>
-                              sub.name + (sub.price ? ` (+€${sub.price})` : ''),
-                          )
-                          .join(', ')}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setCreateForm(prev => ({
-                            ...prev,
-                            options: prev.options.filter((_, i) => i !== index),
-                          }));
-                        }}
-                        className="ml-auto"
-                      >
-                        ✕
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    placeholder="Nom de l'option (ex: Frites)"
-                    value={currentOption}
-                    onChange={e => setCurrentOption(e.target.value)}
-                  />
-                  <Input
-                    placeholder="Sous-options (ex: Frites Classiques, Frites Cheddar (+2.50))"
-                    value={currentSubOptions}
-                    onChange={e => setCurrentSubOptions(e.target.value)}
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="required"
-                      checked={currentOptionRequired}
-                      onChange={e => setCurrentOptionRequired(e.target.checked)}
-                    />
-                    <Label htmlFor="required">Requis</Label>
+                <Label>Options (sélectionner plusieurs groupes)</Label>
+                <Card className="p-4">
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {availableOptionGroups.map(group => (
+                      <div key={group._id} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`create-group-${group._id}`}
+                          checked={selectedGroupIds.includes(group._id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedGroupIds(prev => [...prev, group._id]);
+                            } else {
+                              setSelectedGroupIds(prev => prev.filter(id => id !== group._id));
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`create-group-${group._id}`} className="text-sm">
+                          {group.name} {group.description && ` - ${group.description}`}
+                        </Label>
+                      </div>
+                    ))}
                   </div>
-                  <Input
-                    type="number"
-                    placeholder="Prix option (€)"
-                    value={currentOptionPrice || ''}
-                    onChange={e =>
-                      setCurrentOptionPrice(parseFloat(e.target.value) || 0)
-                    }
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Max sélections (1)"
-                    value={currentOptionMaxSelections}
-                    onChange={e =>
-                      setCurrentOptionMaxSelections(
-                        parseInt(e.target.value) || 1,
-                      )
-                    }
-                    min="1"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="required"
-                      checked={currentOptionRequired}
-                      onChange={e => setCurrentOptionRequired(e.target.checked)}
-                    />
-                    <Label htmlFor="required">Requis</Label>
-                  </div>
-                  <Input
-                    type="number"
-                    placeholder="Max sélections (1)"
-                    value={currentOptionMaxSelections}
-                    onChange={e =>
-                      setCurrentOptionMaxSelections(
-                        parseInt(e.target.value) || 1,
-                      )
-                    }
-                    min="1"
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
-                  onClick={() => {
-                    console.log('Adding option to create form');
-                    if (currentOption.trim() && currentSubOptions.trim()) {
-                      const subOptions = currentSubOptions
-                        .split(',')
-                        .map(s => {
-                          const trimmed = s.trim();
-                          const priceMatch = trimmed.match(
-                            /(.+)\s*\(\+([\d.]+)\)$/,
-                          );
-                          if (priceMatch) {
-                            return {
-                              name: priceMatch[1].trim(),
-                              price: parseFloat(priceMatch[2]),
-                            };
-                          }
-                          return { name: trimmed };
-                        })
-                        .filter(sub => sub.name);
-                      if (subOptions.length > 0) {
-                        setCreateForm(prev => ({
-                          ...prev,
-                          options: [
-                            ...prev.options,
-                            {
-                              name: currentOption.trim(),
-                              required: currentOptionRequired,
-                              price: currentOptionPrice,
-                              maxSelections: currentOptionMaxSelections,
-                              subOptions,
-                            },
-                          ],
-                        }));
-                        setCurrentOption('');
-                        setCurrentSubOptions('');
-                        setCurrentOptionRequired(false);
-                        setCurrentOptionPrice(0);
-                        setCurrentOptionMaxSelections(1);
-                      }
-                    }
-                  }}
-                >
-                  Ajouter Option
-                </button>
+                </Card>
               </div>
             </div>
             <div className="flex justify-end gap-2">
@@ -1116,129 +1028,30 @@ export default function Products() {
 
               {/* Edit Options Section */}
               <div className="grid gap-4">
-                <Label>Options (optionnel)</Label>
-                <div className="space-y-2">
-                  {editForm.options.map((option, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-2 p-2 border rounded"
-                    >
-                      <span className="font-medium">{option.name}:</span>
-                      <span className="text-sm text-muted-foreground">
-                        {option.required ? 'Requis' : 'Optionnel'} - Prix: €
-                        {option.price || 0} - Max: {option.maxSelections} -{' '}
-                        {option.subOptions
-                          .map(
-                            sub =>
-                              sub.name + (sub.price ? ` (+€${sub.price})` : ''),
-                          )
-                          .join(', ')}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setEditForm(prev => ({
-                            ...prev,
-                            options: prev.options.filter((_, i) => i !== index),
-                          }));
-                        }}
-                        className="ml-auto"
-                      >
-                        ✕
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    placeholder="Nom de l'option (ex: Frites)"
-                    value={currentOption}
-                    onChange={e => setCurrentOption(e.target.value)}
-                  />
-                  <Input
-                    placeholder="Sous-options (ex: Frites Classiques, Frites Cheddar (+2.50))"
-                    value={currentSubOptions}
-                    onChange={e => setCurrentSubOptions(e.target.value)}
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="edit-required"
-                      checked={currentOptionRequired}
-                      onChange={e => setCurrentOptionRequired(e.target.checked)}
-                    />
-                    <Label htmlFor="edit-required">Requis</Label>
+                <Label>Options (sélectionner plusieurs groupes)</Label>
+                <Card className="p-4">
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {availableOptionGroups.map(group => (
+                      <div key={group._id} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`edit-group-${group._id}`}
+                          checked={editSelectedGroupIds.includes(group._id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEditSelectedGroupIds(prev => [...prev, group._id]);
+                            } else {
+                              setEditSelectedGroupIds(prev => prev.filter(id => id !== group._id));
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`edit-group-${group._id}`} className="text-sm">
+                          {group.name} {group.description && ` - ${group.description}`}
+                        </Label>
+                      </div>
+                    ))}
                   </div>
-                  <Input
-                    type="number"
-                    placeholder="Prix option (€)"
-                    value={currentOptionPrice || ''}
-                    onChange={e =>
-                      setCurrentOptionPrice(parseFloat(e.target.value) || 0)
-                    }
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Max sélections (1)"
-                    value={currentOptionMaxSelections}
-                    onChange={e =>
-                      setCurrentOptionMaxSelections(
-                        parseInt(e.target.value) || 1,
-                      )
-                    }
-                    min="1"
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
-                  onClick={() => {
-                    console.log('Adding option to edit form');
-                    if (currentOption.trim() && currentSubOptions.trim()) {
-                      const subOptions = currentSubOptions
-                        .split(',')
-                        .map(s => {
-                          const trimmed = s.trim();
-                          const priceMatch = trimmed.match(
-                            /(.+)\s*\(\+([\d.]+)\)$/,
-                          );
-                          if (priceMatch) {
-                            return {
-                              name: priceMatch[1].trim(),
-                              price: parseFloat(priceMatch[2]),
-                            };
-                          }
-                          return { name: trimmed };
-                        })
-                        .filter(sub => sub.name);
-                      if (subOptions.length > 0) {
-                        setEditForm(prev => ({
-                          ...prev,
-                          options: [
-                            ...prev.options,
-                            {
-                              name: currentOption.trim(),
-                              required: currentOptionRequired,
-                              price: currentOptionPrice,
-                              maxSelections: currentOptionMaxSelections,
-                              subOptions,
-                            },
-                          ],
-                        }));
-                        setCurrentOption('');
-                        setCurrentSubOptions('');
-                        setCurrentOptionRequired(false);
-                        setCurrentOptionPrice(0);
-                        setCurrentOptionMaxSelections(1);
-                      }
-                    }
-                  }}
-                >
-                  Ajouter Option
-                </button>
+                </Card>
               </div>
             </div>
             <div className="flex justify-end gap-2">

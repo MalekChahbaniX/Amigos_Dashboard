@@ -8,6 +8,8 @@ import {
   Eye,
   Pencil,
   Trash2,
+  Upload,
+  ImageIcon,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -56,6 +58,7 @@ interface Provider {
   totalOrders: number;
   rating: number;
   status: 'active' | 'inactive';
+  image?: string;
 }
 
 interface CreateProviderForm {
@@ -65,6 +68,9 @@ interface CreateProviderForm {
   address: string;
   email: string;
   description: string;
+  image: string;
+  imageFile?: File;
+  imageType: 'url' | 'file';
 }
 
 export default function Providers() {
@@ -85,6 +91,9 @@ export default function Providers() {
     address: '',
     email: '',
     description: '',
+    image: '',
+    imageFile: undefined,
+    imageType: 'url',
   });
   const [editForm, setEditForm] = useState<CreateProviderForm>({
     name: '',
@@ -93,6 +102,9 @@ export default function Providers() {
     address: '',
     email: '',
     description: '',
+    image: '',
+    imageFile: undefined,
+    imageType: 'url',
   });
 
   useEffect(() => {
@@ -144,6 +156,8 @@ export default function Providers() {
         address: createForm.address,
         email: createForm.email || undefined,
         description: createForm.description || undefined,
+        image: createForm.image || undefined,
+        imageFile: createForm.imageFile,
       });
 
       toast({
@@ -175,6 +189,9 @@ export default function Providers() {
       address: '',
       email: '',
       description: '',
+      image: '',
+      imageFile: undefined,
+      imageType: 'url',
     });
   };
 
@@ -192,6 +209,9 @@ export default function Providers() {
       address: provider.address,
       email: '', // Will be populated from API if needed
       description: '', // Will be populated from API if needed
+      image: provider.image || '',
+      imageFile: undefined,
+      imageType: 'url',
     });
     setIsEditDialogOpen(true);
   };
@@ -215,6 +235,8 @@ export default function Providers() {
         address: editForm.address,
         email: editForm.email || undefined,
         description: editForm.description || undefined,
+        image: editForm.image || undefined,
+        imageFile: editForm.imageFile,
       });
 
       toast({
@@ -255,6 +277,41 @@ export default function Providers() {
         description: error.message || 'Erreur lors de la suppression du prestataire',
         variant: 'destructive',
       });
+    }
+  };
+
+  // Image file handling functions
+  const handleImageFileChange = (file: File, isEdit: boolean = false) => {
+    if (isEdit) {
+      setEditForm(prev => ({
+        ...prev,
+        imageFile: file,
+        image: file.name,
+      }));
+    } else {
+      setCreateForm(prev => ({
+        ...prev,
+        imageFile: file,
+        image: file.name,
+      }));
+    }
+  };
+
+  const handleImageTypeChange = (type: 'url' | 'file', isEdit: boolean = false) => {
+    if (isEdit) {
+      setEditForm(prev => ({
+        ...prev,
+        imageType: type,
+        image: '',
+        imageFile: undefined,
+      }));
+    } else {
+      setCreateForm(prev => ({
+        ...prev,
+        imageType: type,
+        image: '',
+        imageFile: undefined,
+      }));
     }
   };
 
@@ -421,6 +478,71 @@ export default function Providers() {
                       className="min-h-[100px] xs:min-h-[120px] text-sm xs:text-base resize-none"
                     />
                   </div>
+                  <div className="grid gap-2 xs:gap-3">
+                    <Label className="text-sm xs:text-base font-medium">
+                      Image du prestataire
+                    </Label>
+                    <div className="space-y-3">
+                      {/* Type selection */}
+                      <div className="flex gap-4">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            id="url-type"
+                            checked={createForm.imageType === 'url'}
+                            onChange={() => handleImageTypeChange('url')}
+                          />
+                          <Label htmlFor="url-type">URL</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            id="file-type"
+                            checked={createForm.imageType === 'file'}
+                            onChange={() => handleImageTypeChange('file')}
+                          />
+                          <Label htmlFor="file-type">Fichier</Label>
+                        </div>
+                      </div>
+
+                      {/* URL Input */}
+                      {createForm.imageType === 'url' && (
+                        <Input
+                          id="image"
+                          value={createForm.image}
+                          onChange={e =>
+                            setCreateForm(prev => ({ ...prev, image: e.target.value }))
+                          }
+                          placeholder="https://example.com/image.jpg"
+                        />
+                      )}
+
+                      {/* File Input */}
+                      {createForm.imageType === 'file' && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  handleImageFileChange(file);
+                                }
+                              }}
+                            />
+                            <Upload className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          {createForm.imageFile && (
+                            <p className="text-sm text-muted-foreground flex items-center gap-1">
+                              <ImageIcon className="h-3 w-3" />
+                              Fichier sélectionné: {createForm.imageFile.name}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <div className="flex flex-col-reverse xs:flex-row justify-end gap-2 xs:gap-3 pt-4 xs:pt-6">
                   <Button
@@ -459,8 +581,31 @@ export default function Providers() {
                 {selectedProvider && (
                   <div className="grid gap-4 xs:gap-6 py-2 xs:py-4 space-y-4">
                     <div className="flex items-center gap-3 sm:gap-4 mb-4">
-                      <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Store className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
+                      <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-lg bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {selectedProvider.image ? (
+                          <img
+                            src={selectedProvider.image}
+                            alt={selectedProvider.name}
+                            className="h-full w-full object-cover"
+                            onError={e => {
+                              const target = e.target as HTMLImageElement;
+                              const container = target.parentElement;
+                              const fallback =
+                                container?.querySelector('.fallback-icon');
+                              if (target && container && fallback) {
+                                target.style.display = 'none';
+                                (fallback as HTMLElement).style.display = 'flex';
+                              }
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          className={`fallback-icon h-8 w-8 text-muted-foreground ${
+                            selectedProvider.image ? 'hidden' : 'flex'
+                          } items-center justify-center`}
+                        >
+                          <Store className="h-8 w-8" />
+                        </div>
                       </div>
                       <div className="min-w-0">
                         <h3 className="font-semibold text-lg sm:text-xl truncate">
@@ -667,6 +812,71 @@ export default function Providers() {
                       className="min-h-[100px] xs:min-h-[120px] text-sm xs:text-base resize-none"
                     />
                   </div>
+                  <div className="grid gap-2 xs:gap-3">
+                    <Label className="text-sm xs:text-base font-medium">
+                      Image du prestataire
+                    </Label>
+                    <div className="space-y-3">
+                      {/* Type selection */}
+                      <div className="flex gap-4">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            id="edit-url-type"
+                            checked={editForm.imageType === 'url'}
+                            onChange={() => handleImageTypeChange('url', true)}
+                          />
+                          <Label htmlFor="edit-url-type">URL</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            id="edit-file-type"
+                            checked={editForm.imageType === 'file'}
+                            onChange={() => handleImageTypeChange('file', true)}
+                          />
+                          <Label htmlFor="edit-file-type">Fichier</Label>
+                        </div>
+                      </div>
+
+                      {/* URL Input */}
+                      {editForm.imageType === 'url' && (
+                        <Input
+                          id="edit-image"
+                          value={editForm.image}
+                          onChange={e =>
+                            setEditForm(prev => ({ ...prev, image: e.target.value }))
+                          }
+                          placeholder="https://example.com/image.jpg"
+                        />
+                      )}
+
+                      {/* File Input */}
+                      {editForm.imageType === 'file' && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  handleImageFileChange(file, true);
+                                }
+                              }}
+                            />
+                            <Upload className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          {editForm.imageFile && (
+                            <p className="text-sm text-muted-foreground flex items-center gap-1">
+                              <ImageIcon className="h-3 w-3" />
+                              Fichier sélectionné: {editForm.imageFile.name}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <div className="flex flex-col-reverse xs:flex-row justify-end gap-2 xs:gap-3 pt-4 xs:pt-6">
                   <Button
@@ -754,10 +964,33 @@ export default function Providers() {
                             key={provider.id}
                             className="p-4 sm:p-5 flex flex-col justify-between border hover:shadow-md transition-shadow"
                           >
-                            <div className="flex items-center gap-3 sm:gap-4 mb-3">
-                              <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                            <div className="h-24 bg-muted flex items-center justify-center overflow-hidden rounded mb-3">
+                              {provider.image ? (
+                                <img
+                                  src={provider.image}
+                                  alt={provider.name}
+                                  className="h-full w-full object-cover"
+                                  onError={e => {
+                                    const target = e.target as HTMLImageElement;
+                                    const container = target.parentElement;
+                                    const fallback =
+                                      container?.querySelector('.fallback-icon');
+                                    if (target && container && fallback) {
+                                      target.style.display = 'none';
+                                      (fallback as HTMLElement).style.display = 'flex';
+                                    }
+                                  }}
+                                />
+                              ) : null}
+                              <div
+                                className={`fallback-icon h-8 w-8 text-muted-foreground ${
+                                  provider.image ? 'hidden' : 'flex'
+                                } items-center justify-center`}
+                              >
+                                <Icon className="h-8 w-8" />
                               </div>
+                            </div>
+                            <div className="flex items-center gap-3 sm:gap-4 mb-3">
                               <div className="min-w-0">
                                 <h3 className="font-semibold text-base sm:text-lg truncate">
                                   {provider.name}

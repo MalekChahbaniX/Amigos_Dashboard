@@ -47,9 +47,6 @@ interface Product {
    providerId?: string;
    optionGroups?: string[];
    availability?: boolean;
-   dineIn?: boolean;
-   delivery?: boolean;
-   takeaway?: boolean;
  }
 
 interface ProductFormProps {
@@ -69,9 +66,6 @@ interface FormDataType {
   providerId: string;
   selectedOptionGroups: string[];
   availability: boolean;
-  dineIn: boolean;
-  delivery: boolean;
-  takeaway: boolean;
 }
 
 const categories = [
@@ -108,9 +102,6 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     providerId: '',
     selectedOptionGroups: [] as string[],
     availability: true,
-    dineIn: true,
-    delivery: true,
-    takeaway: true,
   });
 
   useEffect(() => {
@@ -130,9 +121,6 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         providerId: product.providerId || '',
         selectedOptionGroups: product.optionGroups || [],
         availability: product.availability !== false,
-        dineIn: product.dineIn !== false,
-        delivery: product.delivery !== false,
-        takeaway: product.takeaway !== false,
       });
     }
   }, [product]);
@@ -207,9 +195,6 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         providerId: formData.providerId,
         optionGroups: formData.selectedOptionGroups,
         availability: formData.availability,
-        dineIn: formData.dineIn,
-        delivery: formData.delivery,
-        takeaway: formData.takeaway,
       };
 
       if (product) {
@@ -371,49 +356,6 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                     />
                   </label>
                 )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Availability Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Disponibilité</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="availability">Disponible</Label>
-                <Switch
-                  id="availability"
-                  checked={formData.availability}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, availability: checked })
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="dineIn">Dine-in</Label>
-                <Switch
-                  id="dineIn"
-                  checked={formData.dineIn}
-                  onCheckedChange={(checked) => setFormData({ ...formData, dineIn: checked })}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="delivery">Delivery</Label>
-                <Switch
-                  id="delivery"
-                  checked={formData.delivery}
-                  onCheckedChange={(checked) => setFormData({ ...formData, delivery: checked })}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="takeaway">Takeaway</Label>
-                <Switch
-                  id="takeaway"
-                  checked={formData.takeaway}
-                  onCheckedChange={(checked) => setFormData({ ...formData, takeaway: checked })}
-                />
               </div>
             </CardContent>
           </Card>

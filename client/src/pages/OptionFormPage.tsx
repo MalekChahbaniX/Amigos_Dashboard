@@ -24,9 +24,6 @@ export default function OptionFormPage() {
   const [image, setImage] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [availability, setAvailability] = useState(true);
-  const [dineIn, setDineIn] = useState(true);
-  const [delivery, setDelivery] = useState(true);
-  const [takeaway, setTakeaway] = useState(true);
 
   useEffect(() => {
     if (isEditMode && params?.id) {
@@ -43,9 +40,6 @@ export default function OptionFormPage() {
       setPrice(data.price?.toString() || '0');
       setImage(data.image || '');
       setAvailability(data.availability !== false);
-      setDineIn(data.dineIn !== false);
-      setDelivery(data.delivery !== false);
-      setTakeaway(data.takeaway !== false);
     } catch (error) {
       toast({
         title: 'Erreur',
@@ -87,9 +81,6 @@ export default function OptionFormPage() {
       price: parseFloat(price) || 0,
       image,
       availability,
-      dineIn,
-      delivery,
-      takeaway,
       groupId: groupId || undefined,
     };
 
@@ -210,47 +201,6 @@ export default function OptionFormPage() {
                 )}
               </div>
             </div>
-
-            {/* Availability Settings */}
-            <Card className="bg-gray-50">
-              <CardHeader>
-                <CardTitle className="text-base">Disponibilité</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="availability">Disponible</Label>
-                  <Switch
-                    id="availability"
-                    checked={availability}
-                    onCheckedChange={setAvailability}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="dineIn">Dine-in</Label>
-                  <Switch
-                    id="dineIn"
-                    checked={dineIn}
-                    onCheckedChange={setDineIn}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="delivery">Delivery</Label>
-                  <Switch
-                    id="delivery"
-                    checked={delivery}
-                    onCheckedChange={setDelivery}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="takeaway">Takeaway</Label>
-                  <Switch
-                    id="takeaway"
-                    checked={takeaway}
-                    onCheckedChange={setTakeaway}
-                  />
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Submit */}
             <div className="flex gap-3">

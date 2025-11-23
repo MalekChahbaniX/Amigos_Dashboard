@@ -18,7 +18,7 @@ interface LoginRequest {
   password: string;
 }
 
-interface OptionGroup {
+export interface OptionGroup {
   _id: string;
   name: string;
   description?: string;
@@ -43,9 +43,6 @@ interface ProductOption {
   price: number;
   image?: string;
   availability?: boolean;
-  dineIn?: boolean;
-  delivery?: boolean;
-  takeaway?: boolean;
   optionGroups?: string[];
   storeId?: string;
   createdAt: string;
@@ -366,6 +363,10 @@ class ApiService {
     return this.request(`/providers/${id}`);
   }
 
+  async uploadProviderImage(file: File): Promise<{ imageUrl: string }> {
+    return this.uploadFile(file, '/upload/provider');
+  }
+
   async createProvider(providerData: {
     name: string;
     type: "restaurant" | "course" | "pharmacy";
@@ -373,6 +374,8 @@ class ApiService {
     address: string;
     email?: string;
     description?: string;
+    image?: string;
+    imageFile?: File;
   }): Promise<{
     message: string;
     provider: {
@@ -385,11 +388,27 @@ class ApiService {
       totalOrders: number;
       rating: number;
       status: "active" | "inactive";
+      image?: string;
     };
   }> {
+    // If there's a file, upload it first
+    let finalProviderData = { ...providerData };
+
+    if (providerData.imageFile) {
+      try {
+        const uploadResult = await this.uploadProviderImage(providerData.imageFile);
+        finalProviderData.image = uploadResult.imageUrl;
+      } catch (error) {
+        throw new Error('Failed to upload image');
+      }
+    }
+
+    // Remove the file from data before sending to API
+    const { imageFile, ...apiData } = finalProviderData;
+
     return this.request('/providers', {
       method: 'POST',
-      body: JSON.stringify(providerData),
+      body: JSON.stringify(apiData),
     });
   }
 
@@ -400,6 +419,8 @@ class ApiService {
     address: string;
     email?: string;
     description?: string;
+    image?: string;
+    imageFile?: File;
   }): Promise<{
     message: string;
     provider: {
@@ -414,11 +435,27 @@ class ApiService {
       totalOrders: number;
       rating: number;
       status: "active" | "inactive";
+      image?: string;
     };
   }> {
+    // If there's a file, upload it first
+    let finalProviderData = { ...providerData };
+
+    if (providerData.imageFile) {
+      try {
+        const uploadResult = await this.uploadProviderImage(providerData.imageFile);
+        finalProviderData.image = uploadResult.imageUrl;
+      } catch (error) {
+        throw new Error('Failed to upload image');
+      }
+    }
+
+    // Remove the file from data before sending to API
+    const { imageFile, ...apiData } = finalProviderData;
+
     return this.request(`/providers/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(providerData),
+      body: JSON.stringify(apiData),
     });
   }
 
@@ -1505,9 +1542,6 @@ async createProductOption(optionData: {
   price: number;
   image?: string;
   availability?: boolean;
-  dineIn?: boolean;
-  delivery?: boolean;
-  takeaway?: boolean;
   groupId?: string;
   storeId?: string;
 }): Promise<{
@@ -1526,9 +1560,6 @@ async updateProductOption(id: string, optionData: {
   price?: number;
   image?: string;
   availability?: boolean;
-  dineIn?: boolean;
-  delivery?: boolean;
-  takeaway?: boolean;
 }): Promise<{
   message: string;
   option: ProductOption;

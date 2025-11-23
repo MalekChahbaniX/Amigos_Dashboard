@@ -33,9 +33,6 @@ interface ProductOption {
   price: number;
   image?: string;
   availability?: boolean;
-  dineIn?: boolean;
-  delivery?: boolean;
-  takeaway?: boolean;
   optionGroups?: any[];
 }
 
@@ -159,9 +156,6 @@ export default function AllOptionsPage() {
                 <TableHead className="w-[100px]">Price</TableHead>
                 <TableHead>Assigned to</TableHead>
                 <TableHead className="w-[120px] text-center">Availability</TableHead>
-                <TableHead className="w-[100px] text-center">Dine-in</TableHead>
-                <TableHead className="w-[100px] text-center">Delivery</TableHead>
-                <TableHead className="w-[100px] text-center">Takeaway</TableHead>
                 <TableHead className="w-[120px] text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
@@ -196,15 +190,6 @@ export default function AllOptionsPage() {
                         }`}
                       />
                     </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {option.dineIn !== false && <Check className="w-5 h-5 text-green-500 mx-auto" />}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {option.delivery !== false && <Check className="w-5 h-5 text-green-500 mx-auto" />}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {option.takeaway !== false && <Check className="w-5 h-5 text-green-500 mx-auto" />}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
