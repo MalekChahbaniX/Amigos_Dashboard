@@ -1,5 +1,5 @@
 // API Configuration
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://57.131.23.217:5000/api';
 //const API_BASE_URL ='http://amigos-delivery.duckdns.org/api';
 
 interface LoginResponse {
