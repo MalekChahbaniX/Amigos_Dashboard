@@ -14,6 +14,7 @@ interface DashboardStats {
   activeClients: number;
   activeDeliverers: number;
   todayRevenue: string;
+  todaySolde: string;
 }
 
 interface RecentOrder {
@@ -168,6 +169,13 @@ export default function Dashboard() {
           value={`${stats?.todayRevenue || "0"} DT`}
           icon={DollarSign}
           trend={{ value: 15, isPositive: true }}
+        />
+        <StatsCard
+          title="Solde de la plateforme"
+          value={`${stats?.todaySolde || "0"} DT`}
+          icon={DollarSign}
+          trend={{ value: 12, isPositive: true }}
+          description="Revenue net après commissions"
         />
       </div>
 

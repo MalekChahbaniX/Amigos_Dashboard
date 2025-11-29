@@ -25,6 +25,7 @@ interface Deliverer {
   vehicle: string;
   currentOrders: number;
   totalDeliveries: number;
+  totalSolde: number;
   rating: number;
   isActive: boolean;
   location: string;
@@ -50,7 +51,9 @@ export default function Deliverers() {
   const [deliverers, setDeliverers] = useState<Deliverer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [delivererStates, setDelivererStates] = useState<Record<string, boolean>>({});
+  const [delivererStates, setDelivererStates] = useState<
+    Record<string, boolean>
+  >({});
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -59,13 +62,17 @@ export default function Deliverers() {
     name: "",
     phone: "",
     vehicle: "",
-    location: ""
+    location: "",
   });
 
   const fetchDeliverers = async (page = 1) => {
     try {
       setLoading(true);
-      const response = await apiService.getDeliverers(searchQuery || undefined, page, 10);
+      const response = await apiService.getDeliverers(
+        searchQuery || undefined,
+        page,
+        10
+      );
 
       setDeliverers(response.deliverers);
       setTotalPages(response.totalPages);
@@ -73,12 +80,12 @@ export default function Deliverers() {
 
       // Initialize deliverer states
       const states: Record<string, boolean> = {};
-      response.deliverers.forEach(d => {
+      response.deliverers.forEach((d) => {
         states[d.id] = d.isActive;
       });
       setDelivererStates(states);
     } catch (error: any) {
-      console.error('Error fetching deliverers:', error);
+      console.error("Error fetching deliverers:", error);
       toast({
         title: "Erreur",
         description: "Impossible de charger les livreurs",
@@ -95,14 +102,14 @@ export default function Deliverers() {
 
   const handleToggleActive = async (id: string) => {
     const newState = !delivererStates[id];
-    setDelivererStates(prev => ({ ...prev, [id]: newState }));
+    setDelivererStates((prev) => ({ ...prev, [id]: newState }));
 
     try {
       await apiService.updateDelivererStatus(id, newState);
     } catch (error: any) {
-      console.error('Error updating deliverer status:', error);
+      console.error("Error updating deliverer status:", error);
       // Revert state if API call fails
-      setDelivererStates(prev => ({ ...prev, [id]: !newState }));
+      setDelivererStates((prev) => ({ ...prev, [id]: !newState }));
 
       toast({
         title: "Erreur",
@@ -113,7 +120,12 @@ export default function Deliverers() {
   };
 
   const handleCreateDeliverer = async () => {
-    if (!createForm.name || !createForm.phone || !createForm.vehicle || !createForm.location) {
+    if (
+      !createForm.name ||
+      !createForm.phone ||
+      !createForm.vehicle ||
+      !createForm.location
+    ) {
       toast({
         title: "Erreur",
         description: "Veuillez remplir tous les champs obligatoires",
@@ -140,7 +152,7 @@ export default function Deliverers() {
       resetCreateForm();
       fetchDeliverers(1);
     } catch (error: any) {
-      console.error('Error creating deliverer:', error);
+      console.error("Error creating deliverer:", error);
       toast({
         title: "Erreur",
         description: error.message || "Erreur lors de la création du livreur",
@@ -156,20 +168,26 @@ export default function Deliverers() {
       name: "",
       phone: "",
       vehicle: "",
-      location: ""
+      location: "",
     });
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64">Chargement...</div>;
+    return (
+      <div className="flex items-center justify-center h-64">Chargement...</div>
+    );
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-semibold">Gestion des livreurs</h1>
-          <p className="text-muted-foreground">Gérez votre équipe de livraison</p>
+          <h1 className="text-2xl sm:text-3xl font-semibold">
+            Gestion des livreurs
+          </h1>
+          <p className="text-muted-foreground">
+            Gérez votre équipe de livraison
+          </p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
@@ -180,7 +198,9 @@ export default function Deliverers() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-lg sm:text-xl">Nouveau livreur</DialogTitle>
+              <DialogTitle className="text-lg sm:text-xl">
+                Nouveau livreur
+              </DialogTitle>
               <DialogDescription>
                 Ajouter un nouveau livreur à l'équipe
               </DialogDescription>
@@ -191,7 +211,9 @@ export default function Deliverers() {
                 <Input
                   id="deliverer-name"
                   value={createForm.name}
-                  onChange={(e) => setCreateForm(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) =>
+                    setCreateForm((prev) => ({ ...prev, name: e.target.value }))
+                  }
                   placeholder="Ex: Ali Bouaziz"
                 />
               </div>
@@ -200,7 +222,12 @@ export default function Deliverers() {
                 <Input
                   id="deliverer-phone"
                   value={createForm.phone}
-                  onChange={(e) => setCreateForm(prev => ({ ...prev, phone: e.target.value }))}
+                  onChange={(e) =>
+                    setCreateForm((prev) => ({
+                      ...prev,
+                      phone: e.target.value,
+                    }))
+                  }
                   placeholder="Ex: +216 23 456 789"
                 />
               </div>
@@ -209,7 +236,12 @@ export default function Deliverers() {
                 <Input
                   id="deliverer-vehicle"
                   value={createForm.vehicle}
-                  onChange={(e) => setCreateForm(prev => ({ ...prev, vehicle: e.target.value }))}
+                  onChange={(e) =>
+                    setCreateForm((prev) => ({
+                      ...prev,
+                      vehicle: e.target.value,
+                    }))
+                  }
                   placeholder="Ex: Moto, Voiture"
                 />
               </div>
@@ -218,7 +250,12 @@ export default function Deliverers() {
                 <Input
                   id="deliverer-location"
                   value={createForm.location}
-                  onChange={(e) => setCreateForm(prev => ({ ...prev, location: e.target.value }))}
+                  onChange={(e) =>
+                    setCreateForm((prev) => ({
+                      ...prev,
+                      location: e.target.value,
+                    }))
+                  }
                   placeholder="Ex: Centre Ville, Tunis"
                 />
               </div>
@@ -239,7 +276,7 @@ export default function Deliverers() {
                 disabled={isSubmitting}
                 className="w-full sm:w-auto"
               >
-                {isSubmitting ? 'Création...' : 'Créer le livreur'}
+                {isSubmitting ? "Création..." : "Créer le livreur"}
               </Button>
             </div>
           </DialogContent>
@@ -258,7 +295,8 @@ export default function Deliverers() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">
-              {Object.values(delivererStates).filter(Boolean).length} / {deliverers.length}
+              {Object.values(delivererStates).filter(Boolean).length} /{" "}
+              {deliverers.length}
             </p>
           </CardContent>
         </Card>
@@ -274,11 +312,32 @@ export default function Deliverers() {
         </Card>
         <Card>
           <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Solde total des livreurs
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold text-chart-2">
+              {deliverers
+                .reduce((sum, d) => sum + (Number(d.totalSolde) || 0), 0)
+                .toFixed(3)}{" "}
+              DT
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
             <p className="text-sm text-muted-foreground">Note moyenne</p>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">
-              {(deliverers.reduce((sum, d) => sum + d.rating, 0) / deliverers.length).toFixed(1)} ⭐
+              {(
+                deliverers.reduce((sum, d) => sum + d.rating, 0) /
+                deliverers.length
+              ).toFixed(1)}{" "}
+              ⭐
             </p>
           </CardContent>
         </Card>
@@ -299,64 +358,93 @@ export default function Deliverers() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {deliverers.length > 0 ? deliverers.map((deliverer) => (
-              <div
-                key={deliverer.id}
-                className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg border hover-elevate gap-4"
-                data-testid={`deliverer-row-${deliverer.id}`}
-              >
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <Avatar className="flex-shrink-0">
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {deliverer.name.split(' ').map((n: string) => n[0]).join('')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium truncate">{deliverer.name}</p>
-                    <p className="text-sm text-muted-foreground">{deliverer.phone}</p>
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1">
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <MapPin className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{deliverer.location}</span>
-                      </span>
-                      <span className="text-xs text-muted-foreground truncate">
-                        {deliverer.vehicle}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6">
-                  <div className="flex items-center gap-4 sm:gap-6">
-                    <div className="text-center">
-                      <p className="text-xs sm:text-sm text-muted-foreground">En cours</p>
-                      <div className="flex items-center gap-1 justify-center">
-                        <Package className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
-                        <p className="text-base sm:text-lg font-semibold">{deliverer.currentOrders}</p>
+            {deliverers.length > 0 ? (
+              deliverers.map((deliverer) => (
+                <div
+                  key={deliverer.id}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg border hover-elevate gap-4"
+                  data-testid={`deliverer-row-${deliverer.id}`}
+                >
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <Avatar className="flex-shrink-0">
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {deliverer.name
+                          .split(" ")
+                          .map((n: string) => n[0])
+                          .join("")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{deliverer.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {deliverer.phone}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <MapPin className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">{deliverer.location}</span>
+                        </span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          {deliverer.vehicle}
+                        </span>
                       </div>
                     </div>
-                    <div className="text-center">
-                      <p className="text-xs sm:text-sm text-muted-foreground">Livraisons</p>
-                      <p className="text-base sm:text-lg font-semibold">{deliverer.totalDeliveries}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs sm:text-sm text-muted-foreground">Note</p>
-                      <p className="text-base sm:text-lg font-semibold">{deliverer.rating} ⭐</p>
-                    </div>
                   </div>
-                  <div className="flex items-center gap-2 justify-center sm:justify-start">
-                    <span className="text-xs sm:text-sm text-muted-foreground">
-                      {delivererStates[deliverer.id] ? 'Actif' : 'Inactif'}
-                    </span>
-                    <Switch
-                      checked={delivererStates[deliverer.id] || false}
-                      onCheckedChange={() => handleToggleActive(deliverer.id)}
-                      data-testid={`switch-active-${deliverer.id}`}
-                    />
+                  <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6">
+                    <div className="flex items-center gap-4 sm:gap-6">
+                      <div className="text-center">
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          En cours
+                        </p>
+                        <div className="flex items-center gap-1 justify-center">
+                          <Package className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
+                          <p className="text-base sm:text-lg font-semibold">
+                            {deliverer.currentOrders}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          Livraisons
+                        </p>
+                        <p className="text-base sm:text-lg font-semibold">
+                          {deliverer.totalDeliveries}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          Solde
+                        </p>
+                        <p className="text-base sm:text-lg font-semibold text-chart-2">
+                          {deliverer.totalSolde || "0.000 DT"}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          Note
+                        </p>
+                        <p className="text-base sm:text-lg font-semibold">
+                          {deliverer.rating} ⭐
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 justify-center sm:justify-start">
+                      <span className="text-xs sm:text-sm text-muted-foreground">
+                        {delivererStates[deliverer.id] ? "Actif" : "Inactif"}
+                      </span>
+                      <Switch
+                        checked={delivererStates[deliverer.id] || false}
+                        onCheckedChange={() => handleToggleActive(deliverer.id)}
+                        data-testid={`switch-active-${deliverer.id}`}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            )) : (
-              <p className="text-muted-foreground text-center py-4">Aucun livreur trouvé</p>
+              ))
+            ) : (
+              <p className="text-muted-foreground text-center py-4">
+                Aucun livreur trouvé
+              </p>
             )}
           </div>
 

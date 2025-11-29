@@ -27,6 +27,7 @@ interface Order {
   phone?: string;
   address: string;
   total: string;
+  solde?: string;
   status: "pending" | "confirmed" | "preparing" | "in_delivery" | "delivered" | "cancelled";
   date: string;
   deliverer?: string | null;
@@ -191,6 +192,9 @@ export default function Orders() {
                 <div className="flex items-center justify-between xs:justify-end gap-3 xs:gap-4 w-full xs:w-auto">
                   <div className="text-center xs:text-right">
                     <div className="font-semibold text-sm xs:text-base">{order.total}</div>
+                    {order.solde && (
+                      <div className="text-xs text-chart-2 font-medium">Solde: {order.solde}</div>
+                    )}
                     {order.deliverer && (
                       <div className="text-xs text-muted-foreground truncate max-w-[100px] xs:max-w-none">{order.deliverer}</div>
                     )}
@@ -299,6 +303,13 @@ export default function Orders() {
                 <p className="text-base xs:text-lg sm:text-xl font-semibold">Total</p>
                 <p className="text-xl xs:text-2xl sm:text-3xl font-bold text-primary">{selectedOrder.total}</p>
               </div>
+              
+              {selectedOrder.solde && (
+                <div className="flex justify-between items-center pt-2 xs:pt-3">
+                  <p className="text-base xs:text-lg sm:text-xl font-semibold text-chart-2">Solde Plateforme</p>
+                  <p className="text-lg xs:text-xl sm:text-2xl font-bold text-chart-2">{selectedOrder.solde}</p>
+                </div>
+              )}
 
               <div className="flex flex-col xs:flex-row gap-2 xs:gap-3 pt-4 xs:pt-6">
                 <Button className="flex-1 min-h-[44px] xs:min-h-[40px] text-sm xs:text-base touch-manipulation" data-testid="button-update-status">

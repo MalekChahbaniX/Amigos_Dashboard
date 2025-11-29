@@ -1,5 +1,6 @@
 // API Configuration
-const API_BASE_URL ='https://amigosdelivery25.com/api';
+//const API_BASE_URL ='https://amigosdelivery25.com/api';
+const API_BASE_URL ='http://192.168.1.104:5000/api';
 
 interface LoginResponse {
   _id: string;
@@ -112,6 +113,7 @@ class ApiService {
     activeClients: number;
     activeDeliverers: number;
     todayRevenue: string;
+    todaySolde: string;
   }> {
     return this.request('/dashboard/stats');
   }
@@ -120,6 +122,7 @@ class ApiService {
     id: string;
     client: string;
     total: string;
+    solde?: string;
     status: "pending" | "confirmed" | "preparing" | "in_delivery" | "delivered" | "cancelled";
     time: string;
   }>> {
@@ -241,6 +244,7 @@ class ApiService {
       vehicle: string;
       currentOrders: number;
       totalDeliveries: number;
+      totalSolde: number;
       rating: number;
       isActive: boolean;
       location: string;
@@ -311,6 +315,19 @@ class ApiService {
       method: 'PUT',
       body: JSON.stringify({ isAvailable }),
     });
+  }
+
+  // New methods for deliverer earnings and statistics
+  async getDelivererStats(id: string): Promise<{
+    delivererId: string;
+    totalOrders: number;
+    stats: Record<string, number>;
+    pending: number;
+    inDelivery: number;
+    delivered: number;
+    cancelled: number;
+  }> {
+    return this.request(`/deliverers/${id}/stats`);
   }
 
   async deleteDeliverer(id: string): Promise<{
@@ -1584,6 +1601,244 @@ async deleteProductOption(id: string): Promise<{
 
 
 
+  // Deliverer authentication methods
+  async loginDeliverer(credentials: { phoneNumber: string }): Promise<{
+    _id: string;
+    firstName: string;
+    lastName: string;
+    phoneNumber: string;
+    email?: string;
+    vehicle?: string;
+    role: string;
+    isVerified: boolean;
+    status: string;
+    token: string;
+    message: string;
+    otpSent?: boolean;
+    debugOtp?: string;
+    error?: string;
+  }> {
+    return this.request('/auth/login-deliverer', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+  }
+
+  async registerDeliverer(userData: {
+    phoneNumber: string;
+    firstName: string;
+    lastName: string;
+    vehicle?: string;
+    email?: string;
+  }): Promise<{
+    _id: string;
+    firstName: string;
+    lastName: string;
+    phoneNumber: string;
+    email?: string;
+    vehicle?: string;
+    role: string;
+    isVerified: boolean;
+    status: string;
+    token: string;
+    message: string;
+  }> {
+    return this.request('/auth/register-deliverer', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
+  }
+
+  async verifyDelivererOTP(verificationData: {
+    phoneNumber: string;
+    otp: string;
+  }): Promise<{
+    _id: string;
+    firstName: string;
+    lastName: string;
+    phoneNumber: string;
+    email?: string;
+    vehicle?: string;
+    role: string;
+    isVerified: boolean;
+    status: string;
+    token: string;
+    message: string;
+  }> {
+    return this.request('/auth/verify-deliverer', {
+      method: 'POST',
+      body: JSON.stringify(verificationData),
+    });
+  }
+
+  // Deliverer order management methods
+  async getDelivererProfile(): Promise<{
+    profile: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      phoneNumber: string;
+      email?: string;
+      vehicle?: string;
+      location?: any;
+      status: string;
+      isVerified: boolean;
+      statistics: {
+        totalOrders: number;
+        deliveredOrders: number;
+        cancelledOrders: number;
+        rating: number;
+        createdAt: string;
+      };
+    };
+  }> {
+    return this.request('/deliverer/profile');
+  }
+
+  async getDelivererEarnings(): Promise<{
+    earnings: {
+      total: number;
+      average: number;
+      orderCount: number;
+      deliveredCount: number;
+      cancelledCount: number;
+      monthly: Array<{
+        month: string;
+        total: number;
+        orders: number;
+        delivered: number;
+        cancelled: number;
+      }>;
+    };
+  }> {
+    return this.request('/deliverer/earnings');
+  }
+
+  async getDelivererAvailableOrders(): Promise<{
+    orders: Array<{
+      id: string;
+      orderNumber: string;
+      client: {
+        id: string;
+        name: string;
+        phone: string;
+        location: any;
+      };
+      provider: {
+        id: string;
+        name: string;
+        type: string;
+        phone: string;
+        address: string;
+      };
+      items: Array<{
+        name: string;
+        quantity: number;
+        price: number;
+      }>;
+      total: number;
+      solde: string;
+      status: string;
+      deliveryAddress: any;
+      paymentMethod: string;
+      finalAmount: number;
+      createdAt: string;
+      platformSolde: number;
+    }>;
+    count: number;
+  }> {
+    return this.request('/deliverer/orders/available');
+  }
+
+  async getDelivererOrders(): Promise<{
+    orders: Array<{
+      id: string;
+      orderNumber: string;
+      client: {
+        id: string;
+        name: string;
+        phone: string;
+        location: any;
+      };
+      provider: {
+        id: string;
+        name: string;
+        type: string;
+        phone: string;
+        address: string;
+      };
+      items: Array<{
+        name: string;
+        quantity: number;
+        price: number;
+      }>;
+      total: number;
+      solde: string;
+      status: string;
+      deliveryAddress: any;
+      paymentMethod: string;
+      finalAmount: number;
+      createdAt: string;
+      platformSolde: number;
+    }>;
+    count: number;
+  }> {
+    return this.request('/deliverer/orders');
+  }
+
+  async acceptOrder(orderId: string): Promise<{
+    success: boolean;
+    message: string;
+    order?: {
+      id: string;
+      orderNumber: string;
+      status: string;
+      // ... other order fields
+    };
+  }> {
+    return this.request(`/deliverer/orders/${orderId}/accept`, {
+      method: 'PUT',
+    });
+  }
+
+  async rejectOrder(orderId: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.request(`/deliverer/orders/${orderId}/reject`, {
+      method: 'PUT',
+    });
+  }
+
+  async updateOrderStatus(orderId: string, status: string): Promise<{
+    success: boolean;
+    message: string;
+    order?: {
+      id: string;
+      status: string;
+      updatedAt: string;
+    };
+  }> {
+    return this.request(`/deliverer/orders/${orderId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async updateDelivererLocation(locationData: {
+    latitude: number;
+    longitude: number;
+    address?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    location: any;
+  }> {
+    return this.request('/deliverer/profile/location', {
+      method: 'PUT',
+      body: JSON.stringify(locationData),
+    });
+  }
 }
 
 export const apiService = new ApiService();

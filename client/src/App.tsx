@@ -12,6 +12,7 @@ import Dashboard from "@/pages/Dashboard";
 import Orders from "@/pages/Orders";
 import Clients from "@/pages/Clients";
 import Deliverers from "@/pages/Deliverers";
+import DelivererInterface from "@/pages/DelivererInterface";
 import Providers from "@/pages/Providers";
 import Products from "@/pages/Products";
 import Analytics from "@/pages/Analytics";
@@ -116,6 +117,9 @@ function Router() {
         <DashboardLayout>
           <Configuration />
         </DashboardLayout>
+      </Route>
+      <Route path="/deliverer-interface">
+        <DelivererInterface />
       </Route>
       <Route component={NotFound} />
     </Switch>

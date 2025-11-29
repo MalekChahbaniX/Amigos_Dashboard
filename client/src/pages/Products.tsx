@@ -22,26 +22,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { apiService, OptionGroup } from '@/lib/api';
-
-interface ProductSize {
-  name: string;
-  price: number;
-  optionGroups?: string[];
-}
-
-interface ProductOption {
-  name: string;
-  required: boolean;
-  price?: number;
-  maxSelections: number;
-  image?: string;
-  subOptions: Array<{
-    name: string;
-    price?: number;
-    image?: string;
-  }>;
-}
+import { apiService } from '@/lib/api';
 
 interface Product {
   id: string;
@@ -52,8 +33,16 @@ interface Product {
   stock: number;
   status: 'available' | 'out_of_stock' | 'discontinued';
   image?: string;
-  sizes?: ProductSize[];
-  options?: ProductOption[];
+  options?: Array<{
+    name: string;
+    required: boolean;
+    price?: number;
+    maxSelections: number;
+    subOptions: Array<{
+      name: string;
+      price?: number;
+    }>;
+  }>;
 }
 
 interface ProductsResponse {
@@ -74,10 +63,8 @@ interface CreateProductForm {
   image: string;
   imageFile?: File;
   imageType: 'url' | 'file';
-  sizes?: ProductSize[];
-  options: ProductOption[];
+  providerId?: string;
 }
-
 
 export default function Products() {
   const { toast } = useToast();
@@ -101,7 +88,7 @@ export default function Products() {
     image: '',
     imageFile: undefined,
     imageType: 'url',
-    options: [],
+    providerId: '',
   });
   const [createForm, setCreateForm] = useState<CreateProductForm>({
     name: '',
@@ -113,42 +100,14 @@ export default function Products() {
     image: '',
     imageFile: undefined,
     imageType: 'url',
-    sizes: [],
-    options: [],
+    providerId: '',
   });
 
-  const [currentOption, setCurrentOption] = useState<string>('');
-  const [currentSubOptions, setCurrentSubOptions] = useState<string>('');
-  const [currentOptionRequired, setCurrentOptionRequired] =
-    useState<boolean>(false);
-  const [currentOptionPrice, setCurrentOptionPrice] = useState<number>(0);
-  const [currentOptionMaxSelections, setCurrentOptionMaxSelections] =
-    useState<number>(1);
-
-  // Options dialog state - moved to top to fix hooks order
-  const [isOptionsDialogOpen, setIsOptionsDialogOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [optionGroups, setOptionGroups] = useState<OptionGroup[]>([]);
-  const [newGroup, setNewGroup] = useState({
-    name: '',
-    description: '',
-    image: '',
-  });
-  const [newOption, setNewOption] = useState({
-    name: '',
-    price: '',
-    image: '',
-  });
   const [providers, setProviders] = useState<
     Array<{ id: string; name: string; type: string }>
   >([]);
   const [selectedProviderId, setSelectedProviderId] = useState<string>('');
-  const [selectedEditProviderId, setSelectedEditProviderId] =
-    useState<string>('');
-
-  const [availableOptionGroups, setAvailableOptionGroups] = useState<OptionGroup[]>([]);
-  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
-  const [editSelectedGroupIds, setEditSelectedGroupIds] = useState<string[]>([]);
+  const [selectedEditProviderId, setSelectedEditProviderId] = useState<string>('');
 
   const fetchProducts = async (page = 1) => {
     try {
@@ -177,8 +136,7 @@ export default function Products() {
 
   useEffect(() => {
     fetchProducts(1);
-    fetchProviders(); // ✅ Ajouter cette ligne
-    fetchAvailableOptionGroups();
+    fetchProviders();
   }, [searchQuery, categoryFilter]);
 
   const handleDeleteProduct = async (productId: string) => {
@@ -212,38 +170,7 @@ export default function Products() {
     }
 
     setIsSubmitting(true);
-    const options = selectedGroupIds.map(groupId => {
-      const group = availableOptionGroups.find(g => g._id === groupId);
-      if (!group) return null;
-      return {
-        name: group.name,
-        required: false,
-        price: 0,
-        maxSelections: group.max || 1,
-        subOptions: group.options.map(o => ({
-          name: o.name,
-          price: o.price,
-        })),
-      };
-    }).filter(Boolean) as ProductOption[];
     try {
-      // For now, use a default provider ID - in a real app, this would come from a provider selection
-      // First, let's check if any providers exist
-      const providersResponse = await apiService.getProviders();
-      if (providersResponse.providers.length === 0) {
-        toast({
-          title: 'Erreur',
-          description:
-            "Veuillez d'abord créer un prestataire avant d'ajouter des produits",
-          variant: 'destructive',
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      const defaultProviderId = providersResponse.providers[0].id;
-      console.log('Creating product for provider ID:', defaultProviderId);
-
       const response = await apiService.createProduct({
         name: createForm.name,
         description: createForm.description || undefined,
@@ -251,16 +178,10 @@ export default function Products() {
         category: createForm.category,
         stock: parseInt(createForm.stock) || 0,
         status: createForm.status,
-        providerId: selectedProviderId, // ✅ Ajouter cette ligne
+        providerId: selectedProviderId,
         image: createForm.image || undefined,
         imageFile: createForm.imageFile,
-        sizes: createForm.sizes || undefined,
-        options: options || undefined,
       });
-
-      console.log('Product created successfully:', response);
-
-      console.log('Product created successfully:', response);
 
       toast({
         title: 'Succès',
@@ -272,10 +193,8 @@ export default function Products() {
       fetchProducts(1);
     } catch (error: any) {
       console.error('Error creating product:', error);
-      console.error('Error details:', error.response || error);
-
+      
       let errorMessage = 'Erreur lors de la création du produit';
-
       if (error.message) {
         if (error.message.includes('Prestataire non trouvé')) {
           errorMessage = "Veuillez d'abord créer un prestataire";
@@ -307,17 +226,11 @@ export default function Products() {
       image: '',
       imageFile: undefined,
       imageType: 'url',
-      sizes: [],
-      options: [],
+      providerId: '',
     });
-    setCurrentOption('');
-    setCurrentSubOptions('');
-    setCurrentOptionRequired(false);
-    setCurrentOptionPrice(0);
-    setCurrentOptionMaxSelections(1);
-    setSelectedProviderId(''); // ✅ Ajouter cette ligne
-    setSelectedGroupIds([]);
+    setSelectedProviderId('');
   };
+
   const fetchProviders = async () => {
     try {
       const response = await apiService.getProviders();
@@ -333,16 +246,6 @@ export default function Products() {
     }
   };
 
-  const fetchAvailableOptionGroups = async () => {
-    try {
-      const response = await apiService.getOptionGroups();
-      setAvailableOptionGroups(response.data);
-    } catch (error) {
-      console.error('Error fetching option groups:', error);
-    }
-  };
-
-  // Image file handling functions
   const handleImageFileChange = (file: File, isEdit: boolean = false) => {
     if (isEdit) {
       setEditForm(prev => ({
@@ -376,11 +279,12 @@ export default function Products() {
       }));
     }
   };
+
   const handleEditProduct = (product: Product) => {
     setEditingProduct(product);
     setEditForm({
       name: product.name,
-      description: '', // TODO: Get from API when available
+      description: '',
       price: product.price.toString(),
       category: product.category,
       stock: product.stock.toString(),
@@ -388,19 +292,11 @@ export default function Products() {
       image: product.image || '',
       imageFile: undefined,
       imageType: 'url',
-      sizes: product.sizes || [],
-      options: product.options || [],
+      providerId: '',
     });
-    setCurrentOption('');
-    setCurrentSubOptions('');
-    setCurrentOptionRequired(false);
-    setCurrentOptionPrice(0);
-    setCurrentOptionMaxSelections(1);
     setIsEditDialogOpen(true);
     const providerMatch = providers.find(p => p.name === product.provider);
     setSelectedEditProviderId(providerMatch?.id || '');
-    setEditSelectedGroupIds([]);
-    setIsEditDialogOpen(true);
   };
 
   const handleUpdateProduct = async () => {
@@ -419,20 +315,6 @@ export default function Products() {
     }
 
     setIsSubmitting(true);
-    const options = editSelectedGroupIds.map(groupId => {
-      const group = availableOptionGroups.find(g => g._id === groupId);
-      if (!group) return null;
-      return {
-        name: group.name,
-        required: false,
-        price: 0,
-        maxSelections: group.max || 1,
-        subOptions: group.options.map(o => ({
-          name: o.name,
-          price: o.price,
-        })),
-      };
-    }).filter(Boolean) as ProductOption[];
     try {
       await apiService.updateProduct(editingProduct.id, {
         name: editForm.name,
@@ -441,10 +323,9 @@ export default function Products() {
         category: editForm.category,
         stock: parseInt(editForm.stock) || 0,
         status: editForm.status,
-        providerId: selectedEditProviderId, // ✅ Ajouter cette ligne
+        providerId: selectedEditProviderId,
         image: editForm.image || undefined,
         imageFile: editForm.imageFile,
-        options: options || undefined,
       });
 
       toast({
@@ -470,132 +351,11 @@ export default function Products() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">Chargement...</div>
+      <div className="flex items-center justify-center h-64">
+        Chargement...
+      </div>
     );
   }
-
-  // 🔹 Ouvrir le dialog pour un produit
-  const openOptionsDialog = async (productId: string) => {
-    setSelectedProduct(products.find(p => p.id === productId) || null);
-    setIsOptionsDialogOpen(true);
-    await fetchOptionGroups(productId);
-  };
-
-  // 🔹 Charger les groupes d’options du produit
-  const fetchOptionGroups = async (productId: string) => {
-    try {
-      const res = await apiService.getOptionGroupsByProduct(productId);
-      setOptionGroups(res as OptionGroup[] || []);
-    } catch (error) {
-      console.error('Error fetching option groups:', error);
-      toast({
-        title: 'Erreur',
-        description: 'Impossible de charger les options du produit',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // 🔹 Créer un nouveau groupe
-  const createOptionGroup = async () => {
-    if (!newGroup.name || !selectedProduct) return;
-    try {
-      await apiService.createOptionGroup({
-        name: newGroup.name,
-        description: newGroup.description || undefined,
-        image: newGroup.image || undefined,
-        productId: selectedProduct.id,
-      });
-      toast({ title: 'Succès', description: 'Groupe ajouté' });
-      setNewGroup({ name: '', description: '', image: '' });
-      fetchOptionGroups(selectedProduct.id);
-    } catch (err) {
-      toast({
-        title: 'Erreur',
-        description: 'Échec de création',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // 🔹 Ajouter une option dans un groupe
-   const addOptionToGroup = async (groupId: string) => {
-     if (!newOption.name || !selectedProduct) return;
-     try {
-       await apiService.createProductOption({
-         name: newOption.name,
-         price: parseFloat(newOption.price) || 0,
-         image: newOption.image || undefined,
-         groupId,
-       });
-       toast({ title: 'Succès', description: 'Option ajoutée' });
-       setNewOption({ name: '', price: '', image: '' });
-       fetchOptionGroups(selectedProduct.id);
-     } catch (err) {
-       toast({
-         title: 'Erreur',
-         description: 'Échec d’ajout d’option',
-         variant: 'destructive',
-       });
-     }
-   };
-
-  // 🔹 Supprimer un groupe
-  const deleteOptionGroup = async (groupId: string) => {
-    if (!confirm('Supprimer ce groupe ?') || !selectedProduct) return;
-    try {
-      await apiService.deleteOptionGroup(groupId);
-      toast({ title: 'Supprimé', description: 'Groupe supprimé' });
-      fetchOptionGroups(selectedProduct.id);
-    } catch {
-      toast({
-        title: 'Erreur',
-        description: 'Suppression échouée',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // 🔹 Supprimer une option
-  const deleteOption = async (optionId: string) => {
-    if (!selectedProduct) return;
-    try {
-      await apiService.deleteProductOption(optionId);
-      toast({ title: 'Supprimé', description: 'Option supprimée' });
-      fetchOptionGroups(selectedProduct.id);
-    } catch {
-      toast({
-        title: 'Erreur',
-        description: 'Échec suppression',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleAddSubGroup = async (groupId: string) => {
-    const subGroupName = prompt('Nom du sous-groupe ?');
-    if (!subGroupName || !selectedProduct) return;
-
-    try {
-      // Crée d'abord un nouveau groupe
-      const newGroup = await apiService.createOptionGroup({
-        name: subGroupName,
-        productId: selectedProduct.id,
-      });
-
-      // Puis lie ce nouveau groupe comme sous-groupe
-      await apiService.addSubGroup(groupId, newGroup.group._id);
-
-      toast({ title: 'Sous-groupe ajouté avec succès' });
-      fetchOptionGroups(selectedProduct.id);
-    } catch (err) {
-      toast({
-        title: 'Erreur',
-        description: 'Impossible d’ajouter le sous-groupe',
-        variant: 'destructive',
-      });
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -738,7 +498,6 @@ export default function Products() {
               <div className="grid gap-2">
                 <Label>Image du produit</Label>
                 <div className="space-y-3">
-                  {/* Type selection */}
                   <div className="flex gap-4">
                     <div className="flex items-center space-x-2">
                       <input
@@ -760,7 +519,6 @@ export default function Products() {
                     </div>
                   </div>
 
-                  {/* URL Input */}
                   {createForm.imageType === 'url' && (
                     <Input
                       id="image"
@@ -772,7 +530,6 @@ export default function Products() {
                     />
                   )}
 
-                  {/* File Input */}
                   {createForm.imageType === 'file' && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
@@ -798,34 +555,6 @@ export default function Products() {
                   )}
                 </div>
               </div>
-
-              {/* Options Section */}
-              <div className="grid gap-4">
-                <Label>Options (sélectionner plusieurs groupes)</Label>
-                <Card className="p-4">
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {availableOptionGroups.map(group => (
-                      <div key={group._id} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id={`create-group-${group._id}`}
-                          checked={selectedGroupIds.includes(group._id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedGroupIds(prev => [...prev, group._id]);
-                            } else {
-                              setSelectedGroupIds(prev => prev.filter(id => id !== group._id));
-                            }
-                          }}
-                        />
-                        <Label htmlFor={`create-group-${group._id}`} className="text-sm">
-                          {group.name} {group.description && ` - ${group.description}`}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              </div>
             </div>
             <div className="flex justify-end gap-2">
               <Button
@@ -844,7 +573,6 @@ export default function Products() {
           </DialogContent>
         </Dialog>
 
-        {/* Edit Product Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="sm:max-w-[425px] max-h-[80vh] overflow-y-auto">
             <DialogHeader>
@@ -965,7 +693,6 @@ export default function Products() {
               <div className="grid gap-2">
                 <Label>Image du produit</Label>
                 <div className="space-y-3">
-                  {/* Type selection */}
                   <div className="flex gap-4">
                     <div className="flex items-center space-x-2">
                       <input
@@ -987,7 +714,6 @@ export default function Products() {
                     </div>
                   </div>
 
-                  {/* URL Input */}
                   {editForm.imageType === 'url' && (
                     <Input
                       id="edit-image"
@@ -999,7 +725,6 @@ export default function Products() {
                     />
                   )}
 
-                  {/* File Input */}
                   {editForm.imageType === 'file' && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
@@ -1024,34 +749,6 @@ export default function Products() {
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* Edit Options Section */}
-              <div className="grid gap-4">
-                <Label>Options (sélectionner plusieurs groupes)</Label>
-                <Card className="p-4">
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {availableOptionGroups.map(group => (
-                      <div key={group._id} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id={`edit-group-${group._id}`}
-                          checked={editSelectedGroupIds.includes(group._id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setEditSelectedGroupIds(prev => [...prev, group._id]);
-                            } else {
-                              setEditSelectedGroupIds(prev => prev.filter(id => id !== group._id));
-                            }
-                          }}
-                        />
-                        <Label htmlFor={`edit-group-${group._id}`} className="text-sm">
-                          {group.name} {group.description && ` - ${group.description}`}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
               </div>
             </div>
             <div className="flex justify-end gap-2">
@@ -1247,112 +944,6 @@ export default function Products() {
           )}
         </CardContent>
       </Card>
-
-      <Dialog open={isOptionsDialogOpen} onOpenChange={setIsOptionsDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Gérer les options du produit</DialogTitle>
-            <DialogDescription>
-              Ajoutez ou modifiez les groupes d’options (ex: Taille, Sauce,
-              Suppléments)
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedProduct && (
-            <div className="space-y-4">
-              {optionGroups.length > 0 ? (
-                optionGroups.map(group => (
-                  <Card key={group._id}>
-                    <CardHeader className="flex justify-between items-center">
-                      <h4 className="font-medium">{group.name}</h4>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteOptionGroup(group._id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-wrap gap-2">
-                        {group.options.map(
-                          (opt: {
-                            _id: string;
-                            name: string;
-                            price: number;
-                          }) => (
-                            <Badge
-                              key={opt._id}
-                              className="flex items-center gap-1"
-                            >
-                              {opt.name} ({opt.price} DT)
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => deleteOption(opt._id)}
-                              >
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
-                            </Badge>
-                          ),
-                        )}
-                      </div>
-                      <div className="flex gap-2 mt-3">
-                        <Input
-                          placeholder="Nom de l’option"
-                          value={newOption.name}
-                          onChange={e =>
-                            setNewOption({ ...newOption, name: e.target.value })
-                          }
-                        />
-                        <Input
-                          placeholder="Prix"
-                          type="number"
-                          value={newOption.price}
-                          onChange={e =>
-                            setNewOption({
-                              ...newOption,
-                              price: e.target.value,
-                            })
-                          }
-                        />
-                        <Button onClick={() => addOptionToGroup(group._id)}>
-                          Ajouter
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                <p className="text-muted-foreground text-center py-6">
-                  Aucun groupe d’options trouvé
-                </p>
-              )}
-
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-2">Nouveau groupe</h4>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Nom du groupe (ex: Taille)"
-                    value={newGroup.name}
-                    onChange={e =>
-                      setNewGroup({ ...newGroup, name: e.target.value })
-                    }
-                  />
-                  <Button onClick={createOptionGroup}>Créer le groupe</Button>
-                </div>
-              </div>
-            </div>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleAddSubGroup(optionGroups[0]?._id || '')}
-          >
-            + Ajouter un sous-groupe
-          </Button>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
