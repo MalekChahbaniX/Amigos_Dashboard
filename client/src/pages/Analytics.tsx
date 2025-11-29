@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { TrendingUp, TrendingDown, Users, ShoppingBag, DollarSign, Package, Calendar, BarChart3 } from "lucide-react";
+import { TrendingUp, TrendingDown, Users, ShoppingBag, DollarSign, Package, Calendar, BarChart3, Truck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -26,6 +26,20 @@ interface AnalyticsOverview {
     popularProducts: Array<{ name: string; category: string; totalQuantity: number; totalRevenue: number }>;
     providerTypes: Array<{ _id: string; count: number }>;
     productCategories: Array<{ _id: string; count: number }>;
+  };
+  platform?: {
+    balance: {
+      totalSolde: number;
+      totalRevenue: number;
+      totalPayout: number;
+      totalDeliveryFee: number;
+      totalAppFee: number;
+    };
+    delivererPerformance: Array<{
+      name: string;
+      totalOrders: number;
+      totalSolde: number;
+    }>;
   };
 }
 
@@ -172,6 +186,76 @@ export default function Analytics() {
         </div>
       )}
 
+      {/* Platform Balance Cards */}
+      {overviewData?.platform && (
+        <div className="grid gap-3 xs:gap-4 sm:gap-6 grid-cols-1 xs:grid-cols-2 lg:grid-cols-5">
+          <Card className="lg:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Solde Plateforme</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(overviewData.platform.balance.totalSolde)}</div>
+              <p className="text-xs text-muted-foreground">
+                Revenu net après commissions
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Revenu Total</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(overviewData.platform.balance.totalRevenue)}</div>
+              <p className="text-xs text-muted-foreground">
+                Avant commissions
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Payout Restaurants</CardTitle>
+              <TrendingDown className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(overviewData.platform.balance.totalPayout)}</div>
+              <p className="text-xs text-muted-foreground">
+                Aux prestataires
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Frais Livraison</CardTitle>
+              <Truck className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(overviewData.platform.balance.totalDeliveryFee)}</div>
+              <p className="text-xs text-muted-foreground">
+                Frais de transport
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Frais Application</CardTitle>
+              <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(overviewData.platform.balance.totalAppFee)}</div>
+              <p className="text-xs text-muted-foreground">
+                Catégorie-specific
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="grid w-full grid-cols-2 xs:grid-cols-4 gap-1 xs:gap-2 h-auto p-1">
           <TabsTrigger value="overview" className="text-xs xs:text-sm sm:text-base px-2 xs:px-3 sm:px-4 py-2 xs:py-2.5 sm:py-3 min-h-[36px] xs:min-h-[40px]">Vue d'ensemble</TabsTrigger>
@@ -228,6 +312,32 @@ export default function Analytics() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Deliverer Performance */}
+              {overviewData.platform?.delivererPerformance && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Performance des Livreurs</CardTitle>
+                    <CardDescription>Revenus et commandes par livreur</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {overviewData.platform.delivererPerformance.slice(0, 5).map((deliverer, index) => (
+                        <div key={index} className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{deliverer.name}</p>
+                            <p className="text-sm text-muted-foreground">{deliverer.totalOrders} commandes</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">{formatCurrency(deliverer.totalSolde)}</p>
+                            <p className="text-sm text-muted-foreground">Solde livreur</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Provider Types Distribution */}
               <Card>

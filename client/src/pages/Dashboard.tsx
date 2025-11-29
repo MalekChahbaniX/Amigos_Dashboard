@@ -1,4 +1,4 @@
-import { ShoppingBag, Users, Truck, DollarSign, TrendingUp, Clock, LogOut, User } from "lucide-react";
+import { ShoppingBag, Users, Truck, DollarSign, TrendingUp, TrendingDown, Clock, LogOut, User } from "lucide-react";
 import { StatsCard } from "@/components/StatsCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { OrderStatusBadge } from "@/components/OrderStatusBadge";
@@ -15,6 +15,13 @@ interface DashboardStats {
   activeDeliverers: number;
   todayRevenue: string;
   todaySolde: string;
+  platformBalance?: {
+    totalSolde: number;
+    totalRevenue: number;
+    totalPayout: number;
+    totalDeliveryFee: number;
+    totalAppFee: number;
+  };
 }
 
 interface RecentOrder {
@@ -177,6 +184,35 @@ export default function Dashboard() {
           trend={{ value: 12, isPositive: true }}
           description="Revenue net après commissions"
         />
+        
+        {stats?.platformBalance && (
+          <div className="lg:col-span-4 grid gap-3 xs:gap-4 sm:gap-6 grid-cols-1 xs:grid-cols-2 lg:grid-cols-4">
+            <StatsCard
+              title="Revenu Total"
+              value={`${stats.platformBalance.totalRevenue.toFixed(3)} DT`}
+              icon={TrendingUp}
+              description="Avant commissions"
+            />
+            <StatsCard
+              title="Payout Restaurants"
+              value={`${stats.platformBalance.totalPayout.toFixed(3)} DT`}
+              icon={TrendingDown}
+              description="Aux prestataires"
+            />
+            <StatsCard
+              title="Frais Livraison"
+              value={`${stats.platformBalance.totalDeliveryFee.toFixed(3)} DT`}
+              icon={Truck}
+              description="Transport"
+            />
+            <StatsCard
+              title="Frais Application"
+              value={`${stats.platformBalance.totalAppFee.toFixed(3)} DT`}
+              icon={ShoppingBag}
+              description="Catégorie-specific"
+            />
+          </div>
+        )}
       </div>
 
       <div className="grid gap-3 xs:gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-7">

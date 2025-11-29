@@ -30,6 +30,11 @@ interface Product {
   category: string;
   provider: string;
   price: number;
+  p1: number;
+  p2: number;
+  csR: number;
+  csC: number;
+  deliveryCategory: string;
   stock: number;
   status: 'available' | 'out_of_stock' | 'discontinued';
   image?: string;
@@ -43,6 +48,7 @@ interface Product {
       price?: number;
     }>;
   }>;
+  availability?: boolean;
 }
 
 interface ProductsResponse {
@@ -64,6 +70,10 @@ interface CreateProductForm {
   imageFile?: File;
   imageType: 'url' | 'file';
   providerId?: string;
+  csR?: number;
+  csC?: number;
+  deliveryCategory?: string;
+  availability?: boolean;
 }
 
 export default function Products() {
@@ -119,7 +129,17 @@ export default function Products() {
         12,
       );
 
-      setProducts(response.products);
+      // Type assertion to handle the new fields
+      const typedProducts = response.products.map(p => ({
+        ...p,
+        p1: (p as any).p1 || 0,
+        p2: (p as any).p2 || 0,
+        csR: (p as any).csR || 0,
+        csC: (p as any).csC || 0,
+        deliveryCategory: (p as any).deliveryCategory || 'restaurant',
+        availability: (p as any).availability !== false
+      })) as Product[];
+      setProducts(typedProducts);
       setTotalPages(response.totalPages);
       setCurrentPage(response.page);
     } catch (error: any) {
@@ -227,6 +247,10 @@ export default function Products() {
       imageFile: undefined,
       imageType: 'url',
       providerId: '',
+      csR: 5,
+      csC: 0,
+      deliveryCategory: 'restaurant',
+      availability: true,
     });
     setSelectedProviderId('');
   };
@@ -457,6 +481,81 @@ export default function Products() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Commission Settings */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="csR">Commission Restaurant (CsR) %</Label>
+                  <Select
+                    value={createForm.csR?.toString() || '5'}
+                    onValueChange={value =>
+                      setCreateForm(prev => ({ ...prev, csR: parseInt(value) }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">0%</SelectItem>
+                      <SelectItem value="5">5%</SelectItem>
+                      <SelectItem value="10">10%</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="csC">Commission Client (CsC) %</Label>
+                  <Select
+                    value={createForm.csC?.toString() || '0'}
+                    onValueChange={value =>
+                      setCreateForm(prev => ({ ...prev, csC: parseInt(value) }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">0%</SelectItem>
+                      <SelectItem value="5">5%</SelectItem>
+                      <SelectItem value="10">10%</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="deliveryCategory">Catégorie de Livraison</Label>
+                <Select
+                  value={createForm.deliveryCategory || 'restaurant'}
+                  onValueChange={value =>
+                    setCreateForm(prev => ({ ...prev, deliveryCategory: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="restaurant">Restaurant</SelectItem>
+                    <SelectItem value="course">Course</SelectItem>
+                    <SelectItem value="pharmacy">Pharmacie</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="availability">Disponibilité</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="availability"
+                    checked={createForm.availability !== false}
+                    onChange={e =>
+                      setCreateForm(prev => ({ ...prev, availability: e.target.checked }))
+                    }
+                  />
+                  <Label htmlFor="availability">Produit actif</Label>
+                </div>
+              </div>
               <div className="grid gap-2">
                 <Label htmlFor="provider">Prestataire *</Label>
                 <Select
@@ -652,6 +751,82 @@ export default function Products() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Commission Settings */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-csR">Commission Restaurant (CsR) %</Label>
+                  <Select
+                    value={editForm.csR?.toString() || '5'}
+                    onValueChange={value =>
+                      setEditForm(prev => ({ ...prev, csR: parseInt(value) }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">0%</SelectItem>
+                      <SelectItem value="5">5%</SelectItem>
+                      <SelectItem value="10">10%</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-csC">Commission Client (CsC) %</Label>
+                  <Select
+                    value={editForm.csC?.toString() || '0'}
+                    onValueChange={value =>
+                      setEditForm(prev => ({ ...prev, csC: parseInt(value) }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">0%</SelectItem>
+                      <SelectItem value="5">5%</SelectItem>
+                      <SelectItem value="10">10%</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-deliveryCategory">Catégorie de Livraison</Label>
+                <Select
+                  value={editForm.deliveryCategory || 'restaurant'}
+                  onValueChange={value =>
+                    setEditForm(prev => ({ ...prev, deliveryCategory: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="restaurant">Restaurant</SelectItem>
+                    <SelectItem value="course">Course</SelectItem>
+                    <SelectItem value="pharmacy">Pharmacie</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-availability">Disponibilité</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="edit-availability"
+                    checked={editForm.availability !== false}
+                    onChange={e =>
+                      setEditForm(prev => ({ ...prev, availability: e.target.checked }))
+                    }
+                  />
+                  <Label htmlFor="edit-availability">Produit actif</Label>
+                </div>
+              </div>
+
               <div className="grid gap-2">
                 <Label htmlFor="edit-provider">Prestataire *</Label>
                 <Select
@@ -855,40 +1030,66 @@ export default function Products() {
                             </p>
                           )}
                         </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {product.category}
-                        </Badge>
+                        <div className="flex flex-col items-end gap-1">
+                          <Badge variant="secondary" className="text-xs">
+                            {product.category}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {product.deliveryCategory}
+                          </Badge>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <p className="text-lg font-semibold text-primary">
-                          {product.price} DT
-                        </p>
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Stock: </span>
-                          <span
-                            className={
-                              product.stock === 0
-                                ? 'text-destructive font-medium'
-                                : 'font-medium'
-                            }
-                          >
+                      
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="bg-muted/50 rounded p-2">
+                          <span className="text-xs text-muted-foreground">Prix: </span>
+                          <span className="font-semibold">{product.price} DT</span>
+                        </div>
+                        <div className="bg-muted/50 rounded p-2">
+                          <span className="text-xs text-muted-foreground">Payout: </span>
+                          <span className="font-semibold">{product.p1} DT</span>
+                        </div>
+                        <div className="bg-muted/50 rounded p-2">
+                          <span className="text-xs text-muted-foreground">Client: </span>
+                          <span className="font-semibold">{product.p2} DT</span>
+                        </div>
+                        <div className="bg-muted/50 rounded p-2">
+                          <span className="text-xs text-muted-foreground">Stock: </span>
+                          <span className={product.stock === 0 ? 'text-destructive font-medium' : 'font-medium'}>
                             {product.stock}
                           </span>
                         </div>
                       </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="bg-muted/50 rounded p-2">
+                          <span className="text-muted-foreground">CsR: </span>
+                          <span className="font-semibold">{product.csR}%</span>
+                        </div>
+                        <div className="bg-muted/50 rounded p-2">
+                          <span className="text-muted-foreground">CsC: </span>
+                          <span className="font-semibold">{product.csC}%</span>
+                        </div>
+                      </div>
+                      
                       <div className="flex items-center justify-between pt-2">
-                        <Badge
-                          variant="secondary"
-                          className={
-                            product.status === 'available'
-                              ? 'bg-chart-2/10 text-chart-2'
-                              : 'bg-destructive/10 text-destructive'
-                          }
-                        >
-                          {product.status === 'available'
-                            ? 'Disponible'
-                            : 'Rupture'}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant="secondary"
+                            className={
+                              product.status === 'available'
+                                ? 'bg-chart-2/10 text-chart-2'
+                                : 'bg-destructive/10 text-destructive'
+                            }
+                          >
+                            {product.status === 'available'
+                              ? 'Disponible'
+                              : 'Rupture'}
+                          </Badge>
+                          <Badge variant={product.availability ? "secondary" : "destructive"} className="text-xs">
+                            {product.availability ? 'Actif' : 'Inactif'}
+                          </Badge>
+                        </div>
                         <div className="flex gap-1">
                           <Button
                             variant="ghost"

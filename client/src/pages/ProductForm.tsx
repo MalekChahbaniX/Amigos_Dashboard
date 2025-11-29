@@ -66,6 +66,9 @@ interface FormDataType {
   providerId: string;
   selectedOptionGroups: string[];
   availability: boolean;
+  csR: string;
+  csC: string;
+  deliveryCategory: string;
 }
 
 const categories = [
@@ -102,6 +105,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     providerId: '',
     selectedOptionGroups: [] as string[],
     availability: true,
+    csR: '5',
+    csC: '0',
+    deliveryCategory: 'restaurant',
   });
 
   useEffect(() => {
@@ -121,6 +127,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         providerId: product.providerId || '',
         selectedOptionGroups: product.optionGroups || [],
         availability: product.availability !== false,
+        csR: (product as any).csR?.toString() || '5',
+        csC: (product as any).csC?.toString() || '0',
+        deliveryCategory: (product as any).deliveryCategory || 'restaurant',
       });
     }
   }, [product]);
@@ -195,6 +204,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         providerId: formData.providerId,
         optionGroups: formData.selectedOptionGroups,
         availability: formData.availability,
+        csR: parseInt(formData.csR) || 0,
+        csC: parseInt(formData.csC) || 0,
+        deliveryCategory: formData.deliveryCategory,
       };
 
       if (product) {
@@ -281,6 +293,60 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                     min="0"
                   />
                 </div>
+              </div>
+
+              {/* Commission Settings */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="csR">Commission Restaurant (CsR) %</Label>
+                  <Select
+                    value={formData.csR}
+                    onValueChange={(value) => setFormData({ ...formData, csR: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">0%</SelectItem>
+                      <SelectItem value="5">5%</SelectItem>
+                      <SelectItem value="10">10%</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="csC">Commission Client (CsC) %</Label>
+                  <Select
+                    value={formData.csC}
+                    onValueChange={(value) => setFormData({ ...formData, csC: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">0%</SelectItem>
+                      <SelectItem value="5">5%</SelectItem>
+                      <SelectItem value="10">10%</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="deliveryCategory">Catégorie de Livraison</Label>
+                <Select
+                  value={formData.deliveryCategory}
+                  onValueChange={(value) => setFormData({ ...formData, deliveryCategory: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="restaurant">Restaurant</SelectItem>
+                    <SelectItem value="course">Course</SelectItem>
+                    <SelectItem value="pharmacy">Pharmacie</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
