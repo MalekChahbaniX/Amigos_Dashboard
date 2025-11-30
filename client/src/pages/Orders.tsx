@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { apiService } from "@/lib/api";
 
 interface Order {
   id: string;
@@ -59,20 +60,16 @@ export default function Orders() {
   const fetchOrders = async (page = 1) => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: "10",
-        ...(searchQuery && { search: searchQuery }),
-        ...(statusFilter !== "all" && { status: statusFilter })
+      const data = await apiService.getAllOrders({
+        page,
+        limit: 10,
+        search: searchQuery || undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined
       });
-
-      const response = await fetch(`/api/orders?${params}`);
-      if (response.ok) {
-        const data: OrdersResponse = await response.json();
-        setOrders(data.orders);
-        setTotalPages(data.totalPages);
-        setCurrentPage(data.page);
-      }
+      
+      setOrders(data.orders);
+      setTotalPages(data.totalPages);
+      setCurrentPage(data.page);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
@@ -86,7 +83,7 @@ export default function Orders() {
 
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
     try {
-      const response = await fetch(`/api/orders/${orderId}/status`, {
+      const response = await fetch(`/api/dashboard/orders/${orderId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -105,7 +102,7 @@ export default function Orders() {
 
   const handleAssignDeliverer = async (orderId: string, delivererId: string) => {
     try {
-      const response = await fetch(`/api/orders/${orderId}/assign-deliverer`, {
+      const response = await fetch(`/api/dashboard/orders/${orderId}/assign-deliverer`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

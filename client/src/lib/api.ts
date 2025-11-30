@@ -130,6 +130,44 @@ class ApiService {
     return this.request('/dashboard/recent-orders');
   }
 
+  async getAllOrders(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+  }): Promise<{
+    orders: Array<{
+      id: string;
+      orderNumber: string;
+      client: string;
+      phone?: string;
+      address: string;
+      total: string;
+      solde?: string;
+      status: "pending" | "confirmed" | "preparing" | "in_delivery" | "delivered" | "cancelled";
+      date: string;
+      deliverer?: string | null;
+      provider: string;
+      items?: Array<{
+        name: string;
+        quantity: number;
+        price: number;
+      }>;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.append('page', params.page.toString());
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    if (params?.search) searchParams.append('search', params.search);
+    if (params?.status) searchParams.append('status', params.status);
+    
+    return this.request(`/dashboard/orders?${searchParams}`);
+  }
+
   async getActiveDeliverers(): Promise<Array<{
     id: string;
     name: string;
@@ -627,6 +665,10 @@ class ApiService {
         price?: number;
       }>;
     }>;
+    csR?: number;
+    csC?: number;
+    deliveryCategory?: string;
+    availability?: boolean;
   }): Promise<{
     message: string;
     product: {
@@ -653,6 +695,10 @@ class ApiService {
           price?: number;
         }>;
       }>;
+      csR?: number;
+      csC?: number;
+      deliveryCategory?: string;
+      availability?: boolean;
     };
   }> {
     // If there's a file, upload it first
@@ -700,6 +746,10 @@ class ApiService {
         price?: number;
       }>;
     }>;
+    csR?: number;
+    csC?: number;
+    deliveryCategory?: string;
+    availability?: boolean;
   }): Promise<{
     message: string;
     product: {
@@ -725,6 +775,10 @@ class ApiService {
           price?: number;
         }>;
       }>;
+      csR?: number;
+      csC?: number;
+      deliveryCategory?: string;
+      availability?: boolean;
     };
   }> {
     // If there's a file, upload it first
@@ -1838,6 +1892,16 @@ async deleteProductOption(id: string): Promise<{
     return this.request('/deliverer/profile/location', {
       method: 'PUT',
       body: JSON.stringify(locationData),
+    });
+  }
+
+  // Deliverer logout method
+  async logoutDeliverer(): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.request('/deliverer/logout', {
+      method: 'POST',
     });
   }
 }

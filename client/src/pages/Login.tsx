@@ -89,17 +89,6 @@ export default function Login() {
       return;
     }
 
-    // Validate phone number format
-    const phoneRegex = /^\+216\d{8}$/;
-    if (!phoneRegex.test(delivererPhone)) {
-      toast({
-        title: "Erreur",
-        description: "Format de numéro invalide. Ex: +21612345678",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setDelivererLoading(true);
 
     try {
@@ -215,7 +204,7 @@ export default function Login() {
                   <Input
                     id="delivererPhone"
                     type="tel"
-                    placeholder="+21612345678"
+                    placeholder="12345678"
                     value={delivererPhone}
                     onChange={(e) => setDelivererPhone(e.target.value)}
                     required

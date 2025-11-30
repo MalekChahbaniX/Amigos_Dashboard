@@ -46,6 +46,11 @@ const menuItems = [
     icon: Truck,
   },
   {
+    title: "Interface Livreur",
+    url: "/deliverer-interface",
+    icon: Truck,
+  },
+  {
     title: "Prestataires",
     url: "/providers",
     icon: Store,

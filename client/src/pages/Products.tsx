@@ -201,6 +201,10 @@ export default function Products() {
         providerId: selectedProviderId,
         image: createForm.image || undefined,
         imageFile: createForm.imageFile,
+        csR: createForm.csR,
+        csC: createForm.csC,
+        deliveryCategory: createForm.deliveryCategory,
+        availability: createForm.availability,
       });
 
       toast({
@@ -317,6 +321,10 @@ export default function Products() {
       imageFile: undefined,
       imageType: 'url',
       providerId: '',
+      csR: product.csR,
+      csC: product.csC,
+      deliveryCategory: product.deliveryCategory,
+      availability: product.availability,
     });
     setIsEditDialogOpen(true);
     const providerMatch = providers.find(p => p.name === product.provider);
@@ -350,6 +358,10 @@ export default function Products() {
         providerId: selectedEditProviderId,
         image: editForm.image || undefined,
         imageFile: editForm.imageFile,
+        csR: editForm.csR,
+        csC: editForm.csC,
+        deliveryCategory: editForm.deliveryCategory,
+        availability: editForm.availability,
       });
 
       toast({
