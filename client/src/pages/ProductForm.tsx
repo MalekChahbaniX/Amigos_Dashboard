@@ -299,36 +299,30 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="csR">Commission Restaurant (CsR) %</Label>
-                  <Select
+                  <Input
+                    id="csR"
+                    type="number"
+                    step="0.1"
+                    placeholder="Ex: 3.5"
                     value={formData.csR}
-                    onValueChange={(value) => setFormData({ ...formData, csR: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">0%</SelectItem>
-                      <SelectItem value="5">5%</SelectItem>
-                      <SelectItem value="10">10%</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    onChange={(e) => setFormData({ ...formData, csR: e.target.value })}
+                    min="0"
+                    max="100"
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="csC">Commission Client (CsC) %</Label>
-                  <Select
+                  <Input
+                    id="csC"
+                    type="number"
+                    step="0.1"
+                    placeholder="Ex: 2.5"
                     value={formData.csC}
-                    onValueChange={(value) => setFormData({ ...formData, csC: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">0%</SelectItem>
-                      <SelectItem value="5">5%</SelectItem>
-                      <SelectItem value="10">10%</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    onChange={(e) => setFormData({ ...formData, csC: e.target.value })}
+                    min="0"
+                    max="100"
+                  />
                 </div>
               </div>
 

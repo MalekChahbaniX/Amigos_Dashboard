@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Search,
   Plus,
@@ -8,14 +8,14 @@ import {
   Eye,
   Pencil,
   Trash2,
-  Upload,
+  MapPin, // Nouvelle icône pour la localisation
   ImageIcon,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -35,6 +35,25 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { apiService } from '@/lib/api';
+
+// Imports pour la carte (Leaflet)
+// Assurez-vous d'avoir installé react-leaflet et leaflet
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Correction pour les icônes Leaflet par défaut qui peuvent ne pas s'afficher
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+// @ts-ignore
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+});
 
 const typeIcons = {
   restaurant: Store,
@@ -59,18 +78,30 @@ interface Provider {
   rating: number;
   status: 'active' | 'inactive';
   image?: string;
+  location?: { // Ajout de la localisation dans l'interface
+    latitude: number;
+    longitude: number;
+    address?: string;
+  };
 }
 
-interface CreateProviderForm {
-  name: string;
-  type: 'restaurant' | 'course' | 'pharmacy';
-  phone: string;
-  address: string;
-  email: string;
-  description: string;
-  image: string;
-  imageFile?: File;
-  imageType: 'url' | 'file';
+// Composant interne pour sélectionner la position sur la carte
+function LocationPicker({ position, onLocationSelect }: { position: [number, number] | null, onLocationSelect: (lat: number, lng: number) => void }) {
+  const map = useMapEvents({
+    click(e) {
+      onLocationSelect(e.latlng.lat, e.latlng.lng);
+    },
+  });
+
+  useEffect(() => {
+    if (position) {
+      map.flyTo(position, map.getZoom());
+    }
+  }, [position, map]);
+
+  return position === null ? null : (
+    <Marker position={position} />
+  );
 }
 
 export default function Providers() {
@@ -84,45 +115,56 @@ export default function Providers() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
-  const [createForm, setCreateForm] = useState<CreateProviderForm>({
+
+  // État pour le formulaire de création
+  const [createForm, setCreateForm] = useState({
     name: '',
-    type: 'restaurant',
+    type: 'restaurant' as 'restaurant' | 'course' | 'pharmacy',
     phone: '',
     address: '',
     email: '',
     description: '',
     image: '',
-    imageFile: undefined,
-    imageType: 'url',
+    imageFile: undefined as File | undefined,
+    imageType: 'url' as 'url' | 'file',
+    latitude: 36.8065, // Tunis par défaut
+    longitude: 10.1815,
   });
-  const [editForm, setEditForm] = useState<CreateProviderForm>({
+
+  // État pour le formulaire d'édition
+  const [editForm, setEditForm] = useState({
     name: '',
-    type: 'restaurant',
+    type: 'restaurant' as 'restaurant' | 'course' | 'pharmacy',
     phone: '',
     address: '',
     email: '',
     description: '',
     image: '',
-    imageFile: undefined,
-    imageType: 'url',
+    imageFile: undefined as File | undefined,
+    imageType: 'url' as 'url' | 'file',
+    latitude: 36.8065,
+    longitude: 10.1815,
   });
 
   useEffect(() => {
     fetchProviders();
   }, []);
 
+  useEffect(() => {
+    fetchProviders();
+  }, [activeTab, searchQuery]);
+
   const fetchProviders = async () => {
     try {
       setLoading(true);
       const response = await apiService.getProviders(
-        activeTab !== 'all' ? activeTab : undefined,
-        searchQuery || undefined,
+        activeTab !== 'all' ? activeTab as 'restaurant' | 'course' | 'pharmacy' | undefined : undefined,
+        searchQuery || undefined
       );
-      // Ensure we have a valid response with providers array
       setProviders(response?.providers || []);
     } catch (error: any) {
       console.error('Error fetching providers:', error);
-      setProviders([]); // Set empty array on error
+      setProviders([]);
       toast({
         title: 'Erreur',
         description: 'Impossible de charger les prestataires',
@@ -132,10 +174,6 @@ export default function Providers() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchProviders();
-  }, [activeTab, searchQuery]);
 
   const handleCreateProvider = async () => {
     if (!createForm.name || !createForm.phone || !createForm.address) {
@@ -158,13 +196,17 @@ export default function Providers() {
         description: createForm.description || undefined,
         image: createForm.image || undefined,
         imageFile: createForm.imageFile,
+        location: {
+          latitude: createForm.latitude,
+          longitude: createForm.longitude,
+          address: createForm.address
+        }
       });
 
       toast({
         title: 'Succès',
         description: response.message || 'Prestataire créé avec succès',
       });
-
       setIsCreateDialogOpen(false);
       resetCreateForm();
       fetchProviders();
@@ -172,8 +214,7 @@ export default function Providers() {
       console.error('Error creating provider:', error);
       toast({
         title: 'Erreur',
-        description:
-          error.message || 'Erreur lors de la création du prestataire',
+        description: error.message || 'Erreur lors de la création du prestataire',
         variant: 'destructive',
       });
     } finally {
@@ -184,40 +225,71 @@ export default function Providers() {
   const resetCreateForm = () => {
     setCreateForm({
       name: '',
-      type: 'restaurant',
+      type: 'restaurant' as 'restaurant' | 'course' | 'pharmacy',
       phone: '',
       address: '',
       email: '',
       description: '',
       image: '',
       imageFile: undefined,
-      imageType: 'url',
+      imageType: 'url' as 'url' | 'file',
+      latitude: 36.8065,
+      longitude: 10.1815,
     });
   };
 
   const handleViewProvider = async (provider: Provider) => {
-    setSelectedProvider(provider);
+    // On récupère les détails complets pour avoir la location si elle n'est pas dans la liste
+    try {
+        const fullProviderData = await apiService.getProviderById(provider.id);
+        // Si l'API renvoie { provider: {...}, menu: [...] }
+        setSelectedProvider(fullProviderData.provider || provider);
+    } catch(e) {
+        // Fallback sur les données de la liste
+        setSelectedProvider(provider);
+    }
     setIsViewDialogOpen(true);
   };
 
-  const handleEditProvider = (provider: Provider) => {
-    setSelectedProvider(provider);
+  const handleEditProvider = async (provider: Provider) => {
+    // Charger les détails complets pour avoir la localisation actuelle
+    let currentProvider = provider;
+    try {
+        const data = await apiService.getProviderById(provider.id);
+        currentProvider = data.provider || provider;
+    } catch (e) {
+        console.error("Could not fetch full provider details", e);
+    }
+
+    setSelectedProvider(currentProvider);
+    
     setEditForm({
-      name: provider.name,
-      type: provider.type,
-      phone: provider.phone,
-      address: provider.address,
-      email: '', // Will be populated from API if needed
-      description: '', // Will be populated from API if needed
-      image: provider.image || '',
+      name: currentProvider.name,
+      type: currentProvider.type as 'restaurant' | 'course' | 'pharmacy',
+      phone: currentProvider.phone,
+      address: currentProvider.address,
+      email: (currentProvider as any).email || '',
+      description: (currentProvider as any).description || '',
+      image: currentProvider.image || '',
       imageFile: undefined,
       imageType: 'url',
+      // Pré-remplir avec la localisation existante ou Tunis par défaut
+      latitude: currentProvider.location?.latitude || 36.8065,
+      longitude: currentProvider.location?.longitude || 10.1815,
     });
     setIsEditDialogOpen(true);
   };
 
   const handleUpdateProvider = async () => {
-    if (!selectedProvider || !editForm.name || !editForm.phone || !editForm.address) {
+    console.log('handleUpdateProvider - Debug:', {
+      selectedProvider,
+      selectedProviderId: selectedProvider?.id,
+      editFormName: editForm.name,
+      editFormPhone: editForm.phone,
+      editFormAddress: editForm.address
+    });
+    
+    if (!selectedProvider || !selectedProvider.id || !editForm.name || !editForm.phone || !editForm.address) {
       toast({
         title: 'Erreur',
         description: 'Veuillez remplir tous les champs obligatoires',
@@ -237,13 +309,17 @@ export default function Providers() {
         description: editForm.description || undefined,
         image: editForm.image || undefined,
         imageFile: editForm.imageFile,
+        location: {
+          latitude: editForm.latitude,
+          longitude: editForm.longitude,
+          address: editForm.address
+        }
       });
-
+      
       toast({
         title: 'Succès',
         description: response.message || 'Prestataire modifié avec succès',
       });
-
       setIsEditDialogOpen(false);
       fetchProviders();
     } catch (error: any) {
@@ -280,820 +356,628 @@ export default function Providers() {
     }
   };
 
-  // Image file handling functions
   const handleImageFileChange = (file: File, isEdit: boolean = false) => {
-    if (isEdit) {
-      setEditForm(prev => ({
-        ...prev,
-        imageFile: file,
-        image: file.name,
-      }));
-    } else {
-      setCreateForm(prev => ({
-        ...prev,
-        imageFile: file,
-        image: file.name,
-      }));
-    }
+    const updater = isEdit ? setEditForm : setCreateForm;
+    updater(prev => ({
+      ...prev,
+      imageFile: file,
+      image: file.name,
+    }));
   };
 
   const handleImageTypeChange = (type: 'url' | 'file', isEdit: boolean = false) => {
-    if (isEdit) {
-      setEditForm(prev => ({
-        ...prev,
-        imageType: type,
-        image: '',
-        imageFile: undefined,
-      }));
-    } else {
-      setCreateForm(prev => ({
-        ...prev,
-        imageType: type,
-        image: '',
-        imageFile: undefined,
-      }));
-    }
+    const updater = isEdit ? setEditForm : setCreateForm;
+    updater(prev => ({
+      ...prev,
+      imageType: type,
+      image: '',
+      imageFile: undefined,
+    }));
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">Chargement...</div>
-    );
+  if (loading && providers.length === 0) {
+    return <div className="p-8 text-center">Chargement...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 xs:px-6 sm:px-8 py-4 xs:py-6 sm:py-8">
-        <div className="space-y-4 xs:space-y-6 sm:space-y-8">
-          <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-3 xs:gap-4 sm:gap-6">
-            <div className="min-w-0 flex-1">
-              <h1 className="text-xl xs:text-2xl sm:text-3xl lg:text-4xl font-semibold leading-tight">
-                Gestion des prestataires
-              </h1>
-              <p className="text-sm xs:text-base text-muted-foreground mt-1">
-                Gérez vos partenaires commerciaux
-              </p>
-            </div>
-            <Dialog
-              open={isCreateDialogOpen}
-              onOpenChange={setIsCreateDialogOpen}
-            >
-              <DialogTrigger asChild>
-                <Button data-testid="button-add-provider">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nouveau prestataire
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="w-[95vw] xs:w-[90vw] sm:max-w-[425px] max-h-[85vh] xs:max-h-[90vh] overflow-y-auto mx-4 xs:mx-auto">
-                <DialogHeader className="space-y-2 xs:space-y-3 pb-2">
-                  <DialogTitle className="text-lg xs:text-xl sm:text-2xl leading-tight">
-                    Nouveau prestataire
-                  </DialogTitle>
-                  <DialogDescription className="text-sm xs:text-base">
-                    Ajouter un nouveau prestataire partenaire
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-3 xs:gap-4 py-2 xs:py-4 space-y-4">
-                  <div className="grid gap-2 xs:gap-3">
-                    <Label
-                      htmlFor="provider-name"
-                      className="text-sm xs:text-base font-medium"
-                    >
-                      Nom du prestataire *
-                    </Label>
-                    <Input
-                      id="provider-name"
-                      value={createForm.name}
-                      onChange={e =>
-                        setCreateForm(prev => ({
-                          ...prev,
-                          name: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex: Pizza House"
-                      className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
-                    />
-                  </div>
-                  <div className="grid gap-2 xs:gap-3">
-                    <Label
-                      htmlFor="provider-type"
-                      className="text-sm xs:text-base font-medium"
-                    >
-                      Type *
-                    </Label>
-                    <Select
-                      value={createForm.type}
-                      onValueChange={(value: any) =>
-                        setCreateForm(prev => ({ ...prev, type: value }))
-                      }
-                    >
-                      <SelectTrigger className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="restaurant">Restaurant</SelectItem>
-                        <SelectItem value="course">Supermarché</SelectItem>
-                        <SelectItem value="pharmacy">Pharmacie</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2 xs:gap-3">
-                    <Label
-                      htmlFor="provider-phone"
-                      className="text-sm xs:text-base font-medium"
-                    >
-                      Téléphone *
-                    </Label>
-                    <Input
-                      id="provider-phone"
-                      value={createForm.phone}
-                      onChange={e =>
-                        setCreateForm(prev => ({
-                          ...prev,
-                          phone: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex: +216 71 123 456"
-                      className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
-                    />
-                  </div>
-                  <div className="grid gap-2 xs:gap-3">
-                    <Label
-                      htmlFor="provider-address"
-                      className="text-sm xs:text-base font-medium"
-                    >
-                      Adresse *
-                    </Label>
-                    <Input
-                      id="provider-address"
-                      value={createForm.address}
-                      onChange={e =>
-                        setCreateForm(prev => ({
-                          ...prev,
-                          address: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex: 25 Avenue Habib Bourguiba, Tunis"
-                      className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
-                    />
-                  </div>
-                  <div className="grid gap-2 xs:gap-3">
-                    <Label
-                      htmlFor="provider-email"
-                      className="text-sm xs:text-base font-medium"
-                    >
-                      Email
-                    </Label>
-                    <Input
-                      id="provider-email"
-                      type="email"
-                      value={createForm.email}
-                      onChange={e =>
-                        setCreateForm(prev => ({
-                          ...prev,
-                          email: e.target.value,
-                        }))
-                      }
-                      placeholder="contact@pizzahouse.tn"
-                      className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
-                    />
-                  </div>
-                  <div className="grid gap-2 xs:gap-3">
-                    <Label
-                      htmlFor="provider-description"
-                      className="text-sm xs:text-base font-medium"
-                    >
-                      Description
-                    </Label>
-                    <Textarea
-                      id="provider-description"
-                      value={createForm.description}
-                      onChange={e =>
-                        setCreateForm(prev => ({
-                          ...prev,
-                          description: e.target.value,
-                        }))
-                      }
-                      placeholder="Description du prestataire..."
-                      className="min-h-[100px] xs:min-h-[120px] text-sm xs:text-base resize-none"
-                    />
-                  </div>
-                  <div className="grid gap-2 xs:gap-3">
-                    <Label className="text-sm xs:text-base font-medium">
-                      Image du prestataire
-                    </Label>
-                    <div className="space-y-3">
-                      {/* Type selection */}
-                      <div className="flex gap-4">
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="radio"
-                            id="url-type"
-                            checked={createForm.imageType === 'url'}
-                            onChange={() => handleImageTypeChange('url')}
-                          />
-                          <Label htmlFor="url-type">URL</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="radio"
-                            id="file-type"
-                            checked={createForm.imageType === 'file'}
-                            onChange={() => handleImageTypeChange('file')}
-                          />
-                          <Label htmlFor="file-type">Fichier</Label>
-                        </div>
-                      </div>
+    <div className="space-y-6 pb-20 md:pb-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+            Gestion des prestataires
+          </h1>
+          <p className="text-gray-500 mt-2">
+            Gérez vos partenaires commerciaux et leurs informations.
+          </p>
+        </div>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white shadow-lg hover:shadow-xl transition-all duration-200">
+              <Plus className="w-4 h-4 mr-2" />
+              Nouveau prestataire
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Nouveau prestataire</DialogTitle>
+              <DialogDescription>
+                Ajouter un nouveau prestataire partenaire
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-6 py-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nom du prestataire *</Label>
+                  <Input
+                    id="name"
+                    value={createForm.name}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                    placeholder="Ex: Pizza House"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="type">Type *</Label>
+                  <Select
+                    value={createForm.type}
+                    onValueChange={(value: 'restaurant' | 'course' | 'pharmacy') =>
+                      setCreateForm((prev) => ({ ...prev, type: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="restaurant">Restaurant</SelectItem>
+                      <SelectItem value="course">Supermarché</SelectItem>
+                      <SelectItem value="pharmacy">Pharmacie</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-                      {/* URL Input */}
-                      {createForm.imageType === 'url' && (
-                        <Input
-                          id="image"
-                          value={createForm.image}
-                          onChange={e =>
-                            setCreateForm(prev => ({ ...prev, image: e.target.value }))
-                          }
-                          placeholder="https://example.com/image.jpg"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Téléphone *</Label>
+                  <Input
+                    id="phone"
+                    value={createForm.phone}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({ ...prev, phone: e.target.value }))
+                    }
+                    placeholder="Ex: +216 71 123 456"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    value={createForm.email}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({ ...prev, email: e.target.value }))
+                    }
+                    placeholder="contact@pizzahouse.tn"
+                  />
+                </div>
+              </div>
+
+              {/* Section Localisation */}
+              <div className="space-y-2">
+                <Label htmlFor="address">Adresse *</Label>
+                <Input
+                  id="address"
+                  value={createForm.address}
+                  onChange={(e) =>
+                    setCreateForm((prev) => ({ ...prev, address: e.target.value }))
+                  }
+                  placeholder="Ex: 25 Avenue Habib Bourguiba, Tunis"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Emplacement sur la carte (Cliquer pour définir)</Label>
+                <div className="h-[200px] w-full rounded-md border overflow-hidden relative z-0">
+                   <MapContainer 
+                        center={[createForm.latitude, createForm.longitude]} 
+                        zoom={13} 
+                        style={{ height: '100%', width: '100%' }}
+                    >
+                        <TileLayer
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                         />
-                      )}
-
-                      {/* File Input */}
-                      {createForm.imageType === 'file' && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="file"
-                              accept="image/*"
-                              onChange={e => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  handleImageFileChange(file);
-                                }
-                              }}
-                            />
-                            <Upload className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                          {createForm.imageFile && (
-                            <p className="text-sm text-muted-foreground flex items-center gap-1">
-                              <ImageIcon className="h-3 w-3" />
-                              Fichier sélectionné: {createForm.imageFile.name}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-col-reverse xs:flex-row justify-end gap-2 xs:gap-3 pt-4 xs:pt-6">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setIsCreateDialogOpen(false);
-                      resetCreateForm();
-                    }}
-                    className="w-full xs:w-auto min-h-[44px] xs:min-h-[40px] sm:min-h-[36px] text-sm xs:text-base px-4 xs:px-6"
-                    disabled={isSubmitting}
-                  >
-                    Annuler
-                  </Button>
-                  <Button
-                    onClick={handleCreateProvider}
-                    disabled={isSubmitting}
-                    className="w-full xs:w-auto min-h-[44px] xs:min-h-[40px] sm:min-h-[36px] text-sm xs:text-base px-4 xs:px-6 touch-manipulation"
-                  >
-                    {isSubmitting ? 'Création...' : 'Créer le prestataire'}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            {/* View Provider Dialog */}
-            <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-              <DialogContent className="w-[95vw] xs:w-[90vw] sm:max-w-[500px] max-h-[85vh] xs:max-h-[90vh] overflow-y-auto mx-4 xs:mx-auto">
-                <DialogHeader className="space-y-2 xs:space-y-3 pb-2">
-                  <DialogTitle className="text-lg xs:text-xl sm:text-2xl leading-tight">
-                    Détails du prestataire
-                  </DialogTitle>
-                  <DialogDescription className="text-sm xs:text-base">
-                    Informations complètes du prestataire
-                  </DialogDescription>
-                </DialogHeader>
-                {selectedProvider && (
-                  <div className="grid gap-4 xs:gap-6 py-2 xs:py-4 space-y-4">
-                    <div className="flex items-center gap-3 sm:gap-4 mb-4">
-                      <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-lg bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
-                        {selectedProvider.image ? (
-                          <img
-                            src={selectedProvider.image}
-                            alt={selectedProvider.name}
-                            className="h-full w-full object-cover"
-                            onError={e => {
-                              const target = e.target as HTMLImageElement;
-                              const container = target.parentElement;
-                              const fallback =
-                                container?.querySelector('.fallback-icon');
-                              if (target && container && fallback) {
-                                target.style.display = 'none';
-                                (fallback as HTMLElement).style.display = 'flex';
-                              }
+                        <LocationPicker 
+                            position={[createForm.latitude, createForm.longitude]}
+                            onLocationSelect={(lat, lng) => {
+                                setCreateForm(prev => ({
+                                    ...prev,
+                                    latitude: lat,
+                                    longitude: lng
+                                }));
                             }}
-                          />
-                        ) : null}
-                        <div
-                          className={`fallback-icon h-8 w-8 text-muted-foreground ${
-                            selectedProvider.image ? 'hidden' : 'flex'
-                          } items-center justify-center`}
-                        >
-                          <Store className="h-8 w-8" />
-                        </div>
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="font-semibold text-lg sm:text-xl truncate">
-                          {selectedProvider.name}
-                        </h3>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {selectedProvider.address}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3 xs:gap-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Type</p>
-                          <Badge variant="secondary" className="text-xs px-2 py-1">
-                            {typeLabels[selectedProvider.type as keyof typeof typeLabels]}
-                          </Badge>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Statut</p>
-                          <Badge
-                            className={`text-xs px-2 py-1 ${
-                              selectedProvider.status === 'active'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-gray-200 text-gray-600'
-                            }`}
-                          >
-                            {selectedProvider.status === 'active' ? 'Actif' : 'Inactif'}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Téléphone</p>
-                        <p className="font-medium">{selectedProvider.phone}</p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Adresse</p>
-                        <p className="font-medium">{selectedProvider.address}</p>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Commandes totales</p>
-                          <p className="font-semibold text-lg">{selectedProvider.totalOrders || 0}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Note moyenne</p>
-                          <p className="font-semibold text-lg">
-                            {selectedProvider.rating ? `${selectedProvider.rating} ⭐` : 'N/A'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div className="flex flex-col-reverse xs:flex-row justify-end gap-2 xs:gap-3 pt-4 xs:pt-6">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsViewDialogOpen(false)}
-                    className="w-full xs:w-auto min-h-[44px] xs:min-h-[40px] sm:min-h-[36px] text-sm xs:text-base px-4 xs:px-6"
-                  >
-                    Fermer
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            {/* Edit Provider Dialog */}
-            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-              <DialogContent className="w-[95vw] xs:w-[90vw] sm:max-w-[425px] max-h-[85vh] xs:max-h-[90vh] overflow-y-auto mx-4 xs:mx-auto">
-                <DialogHeader className="space-y-2 xs:space-y-3 pb-2">
-                  <DialogTitle className="text-lg xs:text-xl sm:text-2xl leading-tight">
-                    Modifier le prestataire
-                  </DialogTitle>
-                  <DialogDescription className="text-sm xs:text-base">
-                    Modifier les informations du prestataire
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-3 xs:gap-4 py-2 xs:py-4 space-y-4">
-                  <div className="grid gap-2 xs:gap-3">
-                    <Label
-                      htmlFor="edit-provider-name"
-                      className="text-sm xs:text-base font-medium"
-                    >
-                      Nom du prestataire *
-                    </Label>
-                    <Input
-                      id="edit-provider-name"
-                      value={editForm.name}
-                      onChange={e =>
-                        setEditForm(prev => ({
-                          ...prev,
-                          name: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex: Pizza House"
-                      className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
-                    />
-                  </div>
-                  <div className="grid gap-2 xs:gap-3">
-                    <Label
-                      htmlFor="edit-provider-type"
-                      className="text-sm xs:text-base font-medium"
-                    >
-                      Type *
-                    </Label>
-                    <Select
-                      value={editForm.type}
-                      onValueChange={(value: any) =>
-                        setEditForm(prev => ({ ...prev, type: value }))
-                      }
-                    >
-                      <SelectTrigger className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="restaurant">Restaurant</SelectItem>
-                        <SelectItem value="course">Supermarché</SelectItem>
-                        <SelectItem value="pharmacy">Pharmacie</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2 xs:gap-3">
-                    <Label
-                      htmlFor="edit-provider-phone"
-                      className="text-sm xs:text-base font-medium"
-                    >
-                      Téléphone *
-                    </Label>
-                    <Input
-                      id="edit-provider-phone"
-                      value={editForm.phone}
-                      onChange={e =>
-                        setEditForm(prev => ({
-                          ...prev,
-                          phone: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex: +216 71 123 456"
-                      className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
-                    />
-                  </div>
-                  <div className="grid gap-2 xs:gap-3">
-                    <Label
-                      htmlFor="edit-provider-address"
-                      className="text-sm xs:text-base font-medium"
-                    >
-                      Adresse *
-                    </Label>
-                    <Input
-                      id="edit-provider-address"
-                      value={editForm.address}
-                      onChange={e =>
-                        setEditForm(prev => ({
-                          ...prev,
-                          address: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex: 25 Avenue Habib Bourguiba, Tunis"
-                      className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
-                    />
-                  </div>
-                  <div className="grid gap-2 xs:gap-3">
-                    <Label
-                      htmlFor="edit-provider-email"
-                      className="text-sm xs:text-base font-medium"
-                    >
-                      Email
-                    </Label>
-                    <Input
-                      id="edit-provider-email"
-                      type="email"
-                      value={editForm.email}
-                      onChange={e =>
-                        setEditForm(prev => ({
-                          ...prev,
-                          email: e.target.value,
-                        }))
-                      }
-                      placeholder="contact@pizzahouse.tn"
-                      className="min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
-                    />
-                  </div>
-                  <div className="grid gap-2 xs:gap-3">
-                    <Label
-                      htmlFor="edit-provider-description"
-                      className="text-sm xs:text-base font-medium"
-                    >
-                      Description
-                    </Label>
-                    <Textarea
-                      id="edit-provider-description"
-                      value={editForm.description}
-                      onChange={e =>
-                        setEditForm(prev => ({
-                          ...prev,
-                          description: e.target.value,
-                        }))
-                      }
-                      placeholder="Description du prestataire..."
-                      className="min-h-[100px] xs:min-h-[120px] text-sm xs:text-base resize-none"
-                    />
-                  </div>
-                  <div className="grid gap-2 xs:gap-3">
-                    <Label className="text-sm xs:text-base font-medium">
-                      Image du prestataire
-                    </Label>
-                    <div className="space-y-3">
-                      {/* Type selection */}
-                      <div className="flex gap-4">
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="radio"
-                            id="edit-url-type"
-                            checked={editForm.imageType === 'url'}
-                            onChange={() => handleImageTypeChange('url', true)}
-                          />
-                          <Label htmlFor="edit-url-type">URL</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="radio"
-                            id="edit-file-type"
-                            checked={editForm.imageType === 'file'}
-                            onChange={() => handleImageTypeChange('file', true)}
-                          />
-                          <Label htmlFor="edit-file-type">Fichier</Label>
-                        </div>
-                      </div>
-
-                      {/* URL Input */}
-                      {editForm.imageType === 'url' && (
-                        <Input
-                          id="edit-image"
-                          value={editForm.image}
-                          onChange={e =>
-                            setEditForm(prev => ({ ...prev, image: e.target.value }))
-                          }
-                          placeholder="https://example.com/image.jpg"
                         />
-                      )}
+                    </MapContainer>
+                </div>
+                <p className="text-xs text-gray-500">
+                    Lat: {createForm.latitude.toFixed(6)}, Lng: {createForm.longitude.toFixed(6)}
+                </p>
+              </div>
 
-                      {/* File Input */}
-                      {editForm.imageType === 'file' && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={createForm.description}
+                  onChange={(e) =>
+                    setCreateForm((prev) => ({ ...prev, description: e.target.value }))
+                  }
+                  placeholder="Description du prestataire..."
+                  className="resize-none"
+                />
+              </div>
+
+              {/* Image Upload Section (Simplifiée pour l'exemple) */}
+              <div className="space-y-2">
+                <Label>Image du prestataire</Label>
+                <Tabs
+                    defaultValue="url"
+                    onValueChange={(v) => handleImageTypeChange(v as 'url' | 'file')}
+                    className="w-full"
+                  >
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="url">URL</TabsTrigger>
+                      <TabsTrigger value="file">Fichier</TabsTrigger>
+                    </TabsList>
+                    <div className="mt-2">
+                        {createForm.imageType === 'url' ? (
+                             <Input
+                                placeholder="https://example.com/image.jpg"
+                                value={createForm.image}
+                                onChange={(e) => setCreateForm(prev => ({...prev, image: e.target.value}))}
+                             />
+                        ) : (
                             <Input
-                              type="file"
-                              accept="image/*"
-                              onChange={e => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  handleImageFileChange(file, true);
-                                }
-                              }}
+                                type="file"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if(file) handleImageFileChange(file);
+                                }}
                             />
-                            <Upload className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                          {editForm.imageFile && (
-                            <p className="text-sm text-muted-foreground flex items-center gap-1">
-                              <ImageIcon className="h-3 w-3" />
-                              Fichier sélectionné: {editForm.imageFile.name}
-                            </p>
-                          )}
-                        </div>
-                      )}
+                        )}
+                    </div>
+                </Tabs>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setIsCreateDialogOpen(false)}
+                disabled={isSubmitting}
+              >
+                Annuler
+              </Button>
+              <Button onClick={handleCreateProvider} disabled={isSubmitting}>
+                {isSubmitting ? 'Création...' : 'Créer le prestataire'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Barre de recherche et Filtres */}
+      <div className="flex flex-col sm:flex-row gap-4 items-center bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Input
+            placeholder="Rechercher un prestataire..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-full sm:w-auto"
+        >
+          <TabsList>
+            <TabsTrigger value="all">Tous</TabsTrigger>
+            <TabsTrigger value="restaurant">Restaurants</TabsTrigger>
+            <TabsTrigger value="course">Supermarchés</TabsTrigger>
+            <TabsTrigger value="pharmacy">Pharmacies</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Liste des prestataires */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {providers && providers.length > 0 ? (
+          providers.map((provider) => {
+            const Icon =
+              typeIcons[provider.type as keyof typeof typeIcons] || Store;
+            return (
+              <Card
+                key={provider.id}
+                className="group hover:shadow-lg transition-all duration-200 border-gray-100 overflow-hidden"
+              >
+                <div className="relative h-48 bg-gray-100">
+                  {provider.image ? (
+                    <img
+                      src={provider.image}
+                      alt={provider.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-300">
+                      <ImageIcon className="w-12 h-12" />
+                    </div>
+                  )}
+                  <div className="absolute top-4 right-4">
+                    <Badge
+                      className={`${
+                        provider.status === 'active'
+                          ? 'bg-green-500'
+                          : 'bg-gray-500'
+                      } text-white border-0 shadow-sm`}
+                    >
+                      {provider.status === 'active' ? 'Actif' : 'Inactif'}
+                    </Badge>
+                  </div>
+                  <div className="absolute top-4 left-4">
+                    <div className="bg-white/90 backdrop-blur-sm p-2 rounded-lg shadow-sm">
+                      <Icon className="w-5 h-5 text-primary" />
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-col-reverse xs:flex-row justify-end gap-2 xs:gap-3 pt-4 xs:pt-6">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsEditDialogOpen(false)}
-                    className="w-full xs:w-auto min-h-[44px] xs:min-h-[40px] sm:min-h-[36px] text-sm xs:text-base px-4 xs:px-6"
-                    disabled={isSubmitting}
-                  >
-                    Annuler
-                  </Button>
-                  <Button
-                    onClick={handleUpdateProvider}
-                    disabled={isSubmitting}
-                    className="w-full xs:w-auto min-h-[44px] xs:min-h-[40px] sm:min-h-[36px] text-sm xs:text-base px-4 xs:px-6 touch-manipulation"
-                  >
-                    {isSubmitting ? 'Modification...' : 'Modifier le prestataire'}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <Tabs
-              value={activeTab}
-              onValueChange={setActiveTab}
-              className="w-full"
-            >
-              <TabsList
-                className="
-      flex flex-wrap justify-center gap-2 sm:gap-3 bg-muted/40 
-      rounded-xl p-2 sm:p-3 w-full
-    "
-              >
-                {[
-                  { value: 'all', label: 'Tous' },
-                  { value: 'restaurant', label: 'Restaurants' },
-                  { value: 'course', label: 'Supermarchés' },
-                  { value: 'pharmacy', label: 'Pharmacies' },
-                ].map(tab => (
-                  <TabsTrigger
-                    key={tab.value}
-                    value={tab.value}
-                    className={`
-          text-sm sm:text-base font-medium transition-all 
-          px-4 py-2 sm:px-5 sm:py-2.5 rounded-lg border border-transparent
-          data-[state=active]:bg-primary data-[state=active]:text-white 
-          data-[state=active]:shadow-sm hover:bg-primary/10 hover:text-primary
-        `}
-                  >
-                    {tab.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-
-              <TabsContent value={activeTab} className="mt-6">
-                {/* ton contenu de prestataires ici */}
-              </TabsContent>
-            </Tabs>
-
-            <TabsContent value={activeTab} className="mt-6">
-              <Card>
-                <CardHeader>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Rechercher un prestataire..."
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      className="pl-9"
-                      data-testid="input-search-providers"
-                    />
+                <CardHeader className="pb-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-bold text-lg text-gray-900 group-hover:text-primary transition-colors">
+                        {provider.name}
+                      </h3>
+                      <p className="text-sm text-gray-500 flex items-center mt-1">
+                        <MapPin className="w-3 h-3 mr-1" />
+                        {provider.address}
+                      </p>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-
-                  {providers && providers.length > 0 ? (
-                    <div className="grid gap-4 sm:gap-5 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                      {providers.map(provider => {
-                        const Icon =
-                          typeIcons[provider.type as keyof typeof typeIcons] ||
-                          Store;
-                        return (
-                          <Card
-                            key={provider.id}
-                            className="p-4 sm:p-5 flex flex-col justify-between border hover:shadow-md transition-shadow"
-                          >
-                            <div className="h-24 bg-muted flex items-center justify-center overflow-hidden rounded mb-3">
-                              {provider.image ? (
-                                <img
-                                  src={provider.image}
-                                  alt={provider.name}
-                                  className="h-full w-full object-cover"
-                                  onError={e => {
-                                    const target = e.target as HTMLImageElement;
-                                    const container = target.parentElement;
-                                    const fallback =
-                                      container?.querySelector('.fallback-icon');
-                                    if (target && container && fallback) {
-                                      target.style.display = 'none';
-                                      (fallback as HTMLElement).style.display = 'flex';
-                                    }
-                                  }}
-                                />
-                              ) : null}
-                              <div
-                                className={`fallback-icon h-8 w-8 text-muted-foreground ${
-                                  provider.image ? 'hidden' : 'flex'
-                                } items-center justify-center`}
-                              >
-                                <Icon className="h-8 w-8" />
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3 sm:gap-4 mb-3">
-                              <div className="min-w-0">
-                                <h3 className="font-semibold text-base sm:text-lg truncate">
-                                  {provider.name}
-                                </h3>
-                                <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                                  {provider.address}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center mb-4">
-                              <div>
-                                <p className="text-xs text-muted-foreground mb-1">
-                                  Type
-                                </p>
-                                <Badge
-                                  variant="secondary"
-                                  className="text-xs px-2 py-0.5"
-                                >
-                                  {
-                                    typeLabels[
-                                      provider.type as keyof typeof typeLabels
-                                    ]
-                                  }
-                                </Badge>
-                              </div>
-                              <div>
-                                <p className="text-xs text-muted-foreground mb-1">
-                                  Commandes
-                                </p>
-                                <p className="font-semibold">
-                                  {provider.totalOrders || 0}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-muted-foreground mb-1">
-                                  Note
-                                </p>
-                                <p className="font-semibold">
-                                  {provider.rating
-                                    ? `${provider.rating} ⭐`
-                                    : 'N/A'}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-muted-foreground mb-1">
-                                  Statut
-                                </p>
-                                <Badge
-                                  className={`text-xs px-2 py-0.5 ${
-                                    provider.status === 'active'
-                                      ? 'bg-green-100 text-green-700'
-                                      : 'bg-gray-200 text-gray-600'
-                                  }`}
-                                >
-                                  {provider.status === 'active'
-                                    ? 'Actif'
-                                    : 'Inactif'}
-                                </Badge>
-                              </div>
-                            </div>
-
-                            <div className="flex justify-center sm:justify-end gap-2">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8 sm:h-9 sm:w-9"
-                                onClick={() => handleViewProvider(provider)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8 sm:h-9 sm:w-9"
-                                onClick={() => handleEditProvider(provider)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8 sm:h-9 sm:w-9 text-red-600 hover:text-red-700"
-                                onClick={() => handleDeleteProvider(provider)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </Card>
-                        );
-                      })}
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-xs text-gray-500 uppercase font-medium">
+                        Type
+                      </span>
+                      <p className="font-semibold text-gray-900 mt-0.5">
+                        {typeLabels[provider.type as keyof typeof typeLabels]}
+                      </p>
                     </div>
-                  ) : (
-                    <p className="text-muted-foreground text-center py-8 text-sm sm:text-base">
-                      Aucun prestataire trouvé
-                    </p>
-                  )}
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-xs text-gray-500 uppercase font-medium">
+                        Commandes
+                      </span>
+                      <p className="font-semibold text-gray-900 mt-0.5">
+                        {provider.totalOrders || 0}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1 hover:bg-gray-50 hover:text-primary hover:border-primary/20"
+                      onClick={() => handleViewProvider(provider)}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Détails
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 hover:bg-gray-50 hover:text-blue-600 hover:border-blue-200"
+                      onClick={() => handleEditProvider(provider)}
+                    >
+                      <Pencil className="w-4 h-4 mr-2" />
+                      Modifier
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                      onClick={() => handleDeleteProvider(provider)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
+            );
+          })
+        ) : (
+          <div className="col-span-full text-center py-12 bg-white rounded-lg border border-dashed border-gray-200">
+            <Store className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900">
+              Aucun prestataire trouvé
+            </h3>
+            <p className="text-gray-500">
+              Commencez par ajouter votre premier prestataire partenaire.
+            </p>
+          </div>
+        )}
       </div>
+
+      {/* Dialog Détails */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Détails du prestataire</DialogTitle>
+            <DialogDescription>
+              Informations complètes du prestataire
+            </DialogDescription>
+          </DialogHeader>
+          {selectedProvider && (
+            <div className="space-y-6">
+              <div className="relative h-48 bg-gray-100 rounded-lg overflow-hidden">
+                {selectedProvider.image ? (
+                  <img
+                    src={selectedProvider.image}
+                    alt={selectedProvider.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <ImageIcon className="w-12 h-12 text-gray-300" />
+                  </div>
+                )}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
+                  <h2 className="text-2xl font-bold text-white">
+                    {selectedProvider.name}
+                  </h2>
+                  <p className="text-white/80 flex items-center text-sm">
+                    <MapPin className="w-4 h-4 mr-1" />
+                    {selectedProvider.address}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Affichage de la carte en lecture seule */}
+              {selectedProvider.location && (
+                <div className="h-[150px] w-full rounded-md border overflow-hidden relative z-0">
+                   <MapContainer 
+                        center={[selectedProvider.location.latitude, selectedProvider.location.longitude]} 
+                        zoom={13} 
+                        style={{ height: '100%', width: '100%' }}
+                        zoomControl={false}
+                        dragging={false}
+                        scrollWheelZoom={false}
+                    >
+                        <TileLayer
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <Marker position={[selectedProvider.location.latitude, selectedProvider.location.longitude]} />
+                    </MapContainer>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <span className="text-xs text-gray-500 uppercase font-medium">
+                    Type
+                  </span>
+                  <p className="font-medium text-gray-900">
+                    {
+                      typeLabels[
+                        selectedProvider.type as keyof typeof typeLabels
+                      ]
+                    }
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs text-gray-500 uppercase font-medium">
+                    Statut
+                  </span>
+                  <Badge
+                    className={
+                      selectedProvider.status === 'active'
+                        ? 'bg-green-500'
+                        : 'bg-gray-500'
+                    }
+                  >
+                    {selectedProvider.status === 'active' ? 'Actif' : 'Inactif'}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs text-gray-500 uppercase font-medium">
+                    Téléphone
+                  </span>
+                  <p className="font-medium text-gray-900">
+                    {selectedProvider.phone}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs text-gray-500 uppercase font-medium">
+                    Note moyenne
+                  </span>
+                  <p className="font-medium text-gray-900">
+                    {selectedProvider.rating
+                      ? `${selectedProvider.rating} ⭐`
+                      : 'N/A'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end mt-4">
+            <Button onClick={() => setIsViewDialogOpen(false)}>Fermer</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Édition */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Modifier le prestataire</DialogTitle>
+            <DialogDescription>
+              Modifier les informations du prestataire
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-6 py-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Nom du prestataire *</Label>
+                <Input
+                  id="edit-name"
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-type">Type *</Label>
+                <Select
+                  value={editForm.type}
+                  onValueChange={(value: 'restaurant' | 'course' | 'pharmacy') =>
+                    setEditForm((prev) => ({ ...prev, type: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="restaurant">Restaurant</SelectItem>
+                    <SelectItem value="course">Supermarché</SelectItem>
+                    <SelectItem value="pharmacy">Pharmacie</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone">Téléphone *</Label>
+                <Input
+                  id="edit-phone"
+                  value={editForm.phone}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, phone: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email</Label>
+                <Input
+                  id="edit-email"
+                  value={editForm.email}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, email: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-address">Adresse *</Label>
+              <Input
+                id="edit-address"
+                value={editForm.address}
+                onChange={(e) =>
+                  setEditForm((prev) => ({ ...prev, address: e.target.value }))
+                }
+              />
+            </div>
+
+            {/* Carte d'édition */}
+            <div className="space-y-2">
+                <Label>Modifier l'emplacement</Label>
+                <div className="h-[200px] w-full rounded-md border overflow-hidden relative z-0">
+                   <MapContainer 
+                        center={[editForm.latitude, editForm.longitude]} 
+                        zoom={13} 
+                        style={{ height: '100%', width: '100%' }}
+                    >
+                        <TileLayer
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <LocationPicker 
+                            position={[editForm.latitude, editForm.longitude]}
+                            onLocationSelect={(lat, lng) => {
+                                setEditForm(prev => ({
+                                    ...prev,
+                                    latitude: lat,
+                                    longitude: lng
+                                }));
+                            }}
+                        />
+                    </MapContainer>
+                </div>
+                <p className="text-xs text-gray-500">
+                    Lat: {editForm.latitude.toFixed(6)}, Lng: {editForm.longitude.toFixed(6)}
+                </p>
+              </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editForm.description}
+                onChange={(e) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                className="resize-none"
+              />
+            </div>
+
+            {/* Image Edit */}
+            <div className="space-y-2">
+                <Label>Image</Label>
+                <Tabs
+                    defaultValue="url"
+                    onValueChange={(v) => handleImageTypeChange(v as 'url' | 'file', true)}
+                    className="w-full"
+                  >
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="url">URL</TabsTrigger>
+                      <TabsTrigger value="file">Fichier</TabsTrigger>
+                    </TabsList>
+                    <div className="mt-2">
+                         {editForm.imageType === 'url' ? (
+                             <Input
+                                value={editForm.image}
+                                onChange={(e) => setEditForm(prev => ({...prev, image: e.target.value}))}
+                             />
+                        ) : (
+                            <Input
+                                type="file"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if(file) handleImageFileChange(file, true);
+                                }}
+                            />
+                        )}
+                    </div>
+                </Tabs>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+              disabled={isSubmitting}
+            >
+              Annuler
+            </Button>
+            <Button onClick={handleUpdateProvider} disabled={isSubmitting}>
+              {isSubmitting ? 'Modification...' : 'Modifier le prestataire'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

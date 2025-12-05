@@ -1,7 +1,7 @@
 // API Configuration
 // 
-const API_BASE_URL ='https://amigosdelivery25.com/api';
-//const API_BASE_URL ='http://192.168.1.104:5000/api';
+//const API_BASE_URL ='https://amigosdelivery25.com/api';
+const API_BASE_URL ='http://192.168.1.104:5000/api';
 
 interface LoginResponse {
   _id: string;
@@ -431,6 +431,11 @@ class ApiService {
     description?: string;
     image?: string;
     imageFile?: File;
+    location?: {
+      latitude: number;
+      longitude: number;
+      address?: string;
+    };
   }): Promise<{
     message: string;
     provider: {
@@ -476,6 +481,11 @@ class ApiService {
     description?: string;
     image?: string;
     imageFile?: File;
+    location?: {
+      latitude: number;
+      longitude: number;
+      address?: string;
+    };
   }): Promise<{
     message: string;
     provider: {

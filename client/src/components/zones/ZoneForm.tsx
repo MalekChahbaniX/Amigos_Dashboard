@@ -110,20 +110,31 @@ const validateForm = (): boolean => {
     try {
       setLoading(true);
 
+      // Ensure 3 decimal precision for distances
+      const minDistance = Number(formData.minDistance);
+      const maxDistance = Number(formData.maxDistance);
+
+      // Check for proper gap between zones (minimum 0.001 km)
+      if (maxDistance - minDistance < 0.001) {
+        setErrors({ maxDistance: "La zone doit avoir une étendue minimale de 0.001 km" });
+        setLoading(false);
+        return;
+      }
+
       if (isEditing && editingZone) {
         // Update existing zone
         await apiService.updateZone(editingZone.id, {
           number: Number(formData.number),
-          minDistance: Number(formData.minDistance),
-          maxDistance: Number(formData.maxDistance),
+          minDistance: Number(minDistance.toFixed(3)),
+          maxDistance: Number(maxDistance.toFixed(3)),
           price: Number(formData.price),
         });
       } else {
         // Create new zone
         await apiService.createZone({
           number: Number(formData.number),
-          minDistance: Number(formData.minDistance),
-          maxDistance: Number(formData.maxDistance),
+          minDistance: Number(minDistance.toFixed(3)),
+          maxDistance: Number(maxDistance.toFixed(3)),
           price: Number(formData.price),
         });
       }
@@ -198,10 +209,10 @@ const validateForm = (): boolean => {
                 id="minDistance"
                 type="number"
                 min="0"
-                step="0.1"
+                step="0.001"
                 value={formData.minDistance}
                 onChange={(e) => handleInputChange("minDistance", e.target.value)}
-                placeholder="Ex: 0"
+                placeholder="Ex: 0.000"
                 className={errors.minDistance ? "border-destructive" : ""}
               />
               {errors.minDistance && (
@@ -215,15 +226,18 @@ const validateForm = (): boolean => {
                 id="maxDistance"
                 type="number"
                 min="0"
-                step="0.1"
+                step="0.001"
                 value={formData.maxDistance}
                 onChange={(e) => handleInputChange("maxDistance", e.target.value)}
-                placeholder="Ex: 5 (ou laissez vide pour illimité)"
+                placeholder="Ex: 3.001 (ou laissez vide pour illimité)"
                 className={errors.maxDistance ? "border-destructive" : ""}
               />
               {errors.maxDistance && (
                 <p className="text-sm text-destructive">{errors.maxDistance}</p>
               )}
+              <p className="text-xs text-muted-foreground">
+                Astuce : Pour éviter les chevauchements, laissez un écart de 0.001 km entre les zones (ex: 0.000 à 3.000 puis 3.001 à 6.000)
+              </p>
             </div>
 
             <div className="grid gap-2">
@@ -232,10 +246,10 @@ const validateForm = (): boolean => {
                 id="price"
                 type="number"
                 min="0"
-                step="0.1"
+                step="0.001"
                 value={formData.price}
                 onChange={(e) => handleInputChange("price", e.target.value)}
-                placeholder="Ex: 2.5"
+                placeholder="Ex: 2.500"
                 className={errors.price ? "border-destructive" : ""}
               />
               {errors.price && (

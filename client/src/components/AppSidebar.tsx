@@ -45,11 +45,11 @@ const menuItems = [
     url: "/deliverers",
     icon: Truck,
   },
-  {
-    title: "Interface Livreur",
-    url: "/deliverer-interface",
-    icon: Truck,
-  },
+  // {
+  //   title: "Interface Livreur",
+  //   url: "/deliverer-interface",
+  //   icon: Truck,
+  // },
   {
     title: "Prestataires",
     url: "/providers",

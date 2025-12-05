@@ -498,40 +498,34 @@ export default function Products() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="csR">Commission Restaurant (CsR) %</Label>
-                  <Select
-                    value={createForm.csR?.toString() || '5'}
-                    onValueChange={value =>
-                      setCreateForm(prev => ({ ...prev, csR: parseInt(value) }))
+                  <Input
+                    id="csR"
+                    type="number"
+                    step="0.1"
+                    placeholder="Ex: 3.5"
+                    value={createForm.csR || ''}
+                    onChange={e =>
+                      setCreateForm(prev => ({ ...prev, csR: parseFloat(e.target.value) || 0 }))
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">0%</SelectItem>
-                      <SelectItem value="5">5%</SelectItem>
-                      <SelectItem value="10">10%</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    min="0"
+                    max="100"
+                  />
                 </div>
 
                 <div className="grid gap-2">
                   <Label htmlFor="csC">Commission Client (CsC) %</Label>
-                  <Select
-                    value={createForm.csC?.toString() || '0'}
-                    onValueChange={value =>
-                      setCreateForm(prev => ({ ...prev, csC: parseInt(value) }))
+                  <Input
+                    id="csC"
+                    type="number"
+                    step="0.1"
+                    placeholder="Ex: 2.5"
+                    value={createForm.csC || ''}
+                    onChange={e =>
+                      setCreateForm(prev => ({ ...prev, csC: parseFloat(e.target.value) || 0 }))
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">0%</SelectItem>
-                      <SelectItem value="5">5%</SelectItem>
-                      <SelectItem value="10">10%</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    min="0"
+                    max="100"
+                  />
                 </div>
               </div>
 
@@ -768,40 +762,34 @@ export default function Products() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="edit-csR">Commission Restaurant (CsR) %</Label>
-                  <Select
-                    value={editForm.csR?.toString() || '5'}
-                    onValueChange={value =>
-                      setEditForm(prev => ({ ...prev, csR: parseInt(value) }))
+                  <Input
+                    id="edit-csR"
+                    type="number"
+                    step="0.1"
+                    placeholder="Ex: 3.5"
+                    value={editForm.csR || ''}
+                    onChange={e =>
+                      setEditForm(prev => ({ ...prev, csR: parseFloat(e.target.value) || 0 }))
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">0%</SelectItem>
-                      <SelectItem value="5">5%</SelectItem>
-                      <SelectItem value="10">10%</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    min="0"
+                    max="100"
+                  />
                 </div>
 
                 <div className="grid gap-2">
                   <Label htmlFor="edit-csC">Commission Client (CsC) %</Label>
-                  <Select
-                    value={editForm.csC?.toString() || '0'}
-                    onValueChange={value =>
-                      setEditForm(prev => ({ ...prev, csC: parseInt(value) }))
+                  <Input
+                    id="edit-csC"
+                    type="number"
+                    step="0.1"
+                    placeholder="Ex: 2.5"
+                    value={editForm.csC || ''}
+                    onChange={e =>
+                      setEditForm(prev => ({ ...prev, csC: parseFloat(e.target.value) || 0 }))
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">0%</SelectItem>
-                      <SelectItem value="5">5%</SelectItem>
-                      <SelectItem value="10">10%</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    min="0"
+                    max="100"
+                  />
                 </div>
               </div>
 
