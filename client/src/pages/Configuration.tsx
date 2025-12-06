@@ -48,10 +48,7 @@ export function Configuration() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      await apiService.updateAppSettings({
-        ...appSettings,
-        updatedBy: 'admin' // À remplacer par l'utilisateur actuel
-      });
+      await apiService.updateAppSettings(appSettings);
       setHasChanges(false);
     } catch (error) {
       console.error("Erreur lors de la sauvegarde:", error);
@@ -63,7 +60,7 @@ export function Configuration() {
   const handleReset = async () => {
     try {
       setSaving(true);
-      await apiService.resetAppSettings('admin');
+      await apiService.resetAppSettings();
       await fetchAppSettings(); // Recharger les paramètres
       setHasChanges(false);
     } catch (error) {

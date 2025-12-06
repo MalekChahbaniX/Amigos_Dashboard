@@ -48,6 +48,13 @@ interface Product {
       price?: number;
     }>;
   }>;
+  sizes?: Array<{
+    name: string;
+    price: number;
+    stock?: number;
+    p1?: number;
+    p2?: number;
+  }>;
   availability?: boolean;
 }
 
@@ -74,6 +81,12 @@ interface CreateProductForm {
   csC?: number;
   deliveryCategory?: string;
   availability?: boolean;
+  hasSizes: boolean;
+  sizes: Array<{
+    name: string;
+    price: string;
+    stock: string;
+  }>;
 }
 
 export default function Products() {
@@ -99,6 +112,12 @@ export default function Products() {
     imageFile: undefined,
     imageType: 'url',
     providerId: '',
+    csR: 5,
+    csC: 0,
+    deliveryCategory: 'restaurant',
+    availability: true,
+    hasSizes: false,
+    sizes: [],
   });
   const [createForm, setCreateForm] = useState<CreateProductForm>({
     name: '',
@@ -111,6 +130,12 @@ export default function Products() {
     imageFile: undefined,
     imageType: 'url',
     providerId: '',
+    csR: 5,
+    csC: 0,
+    deliveryCategory: 'restaurant',
+    availability: true,
+    hasSizes: false,
+    sizes: [],
   });
 
   const [providers, setProviders] = useState<
@@ -137,7 +162,8 @@ export default function Products() {
         csR: (p as any).csR || 0,
         csC: (p as any).csC || 0,
         deliveryCategory: (p as any).deliveryCategory || 'restaurant',
-        availability: (p as any).availability !== false
+        availability: (p as any).availability !== false,
+        sizes: (p as any).sizes || []
       })) as Product[];
       setProducts(typedProducts);
       setTotalPages(response.totalPages);
@@ -205,6 +231,11 @@ export default function Products() {
         csC: createForm.csC,
         deliveryCategory: createForm.deliveryCategory,
         availability: createForm.availability,
+        sizes: createForm.hasSizes ? createForm.sizes.map(size => ({
+          name: size.name,
+          price: parseFloat(size.price),
+          stock: parseInt(size.stock) || 0
+        })) : undefined,
       });
 
       toast({
@@ -255,6 +286,8 @@ export default function Products() {
       csC: 0,
       deliveryCategory: 'restaurant',
       availability: true,
+      hasSizes: false,
+      sizes: [],
     });
     setSelectedProviderId('');
   };
@@ -325,6 +358,12 @@ export default function Products() {
       csC: product.csC,
       deliveryCategory: product.deliveryCategory,
       availability: product.availability,
+      hasSizes: !!(product.sizes && product.sizes.length > 0),
+      sizes: product.sizes ? product.sizes.map(size => ({
+        name: size.name,
+        price: size.price.toString(),
+        stock: size.stock?.toString() || '0'
+      })) : [],
     });
     setIsEditDialogOpen(true);
     const providerMatch = providers.find(p => p.name === product.provider);
@@ -362,6 +401,11 @@ export default function Products() {
         csC: editForm.csC,
         deliveryCategory: editForm.deliveryCategory,
         availability: editForm.availability,
+        sizes: editForm.hasSizes ? editForm.sizes.map(size => ({
+          name: size.name,
+          price: parseFloat(size.price),
+          stock: parseInt(size.stock) || 0
+        })) : undefined,
       });
 
       toast({
@@ -472,6 +516,7 @@ export default function Products() {
                       }))
                     }
                     placeholder="0"
+                    disabled={createForm.hasSizes}
                   />
                 </div>
               </div>
@@ -495,7 +540,7 @@ export default function Products() {
               </div>
 
               {/* Commission Settings */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-rows-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="csR">Commission Restaurant (CsR) %</Label>
                   <Input
@@ -511,7 +556,144 @@ export default function Products() {
                     max="100"
                   />
                 </div>
-
+  
+                {/* Size Management */}
+                <div className="grid gap-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="hasSizes"
+                      checked={createForm.hasSizes}
+                      onChange={(e) =>
+                        setCreateForm(prev => ({
+                          ...prev,
+                          hasSizes: e.target.checked,
+                          stock: e.target.checked ? '0' : prev.stock,
+                        }))
+                      }
+                    />
+                    <Label htmlFor="hasSizes">Ce produit a plusieurs tailles</Label>
+                  </div>
+                </div>
+  
+                {!createForm.hasSizes && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="stock">Stock</Label>
+                    <Input
+                      id="stock"
+                      type="number"
+                      value={createForm.stock}
+                      onChange={e =>
+                        setCreateForm(prev => ({
+                          ...prev,
+                          stock: e.target.value,
+                        }))
+                      }
+                      placeholder="0"
+                    />
+                  </div>
+                )}
+  
+                {createForm.hasSizes && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label>Tailles du produit</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setCreateForm(prev => ({
+                            ...prev,
+                            sizes: [
+                              ...prev.sizes,
+                              { name: '', price: '', stock: '0' },
+                            ],
+                          }))
+                        }
+                      >
+                        + Ajouter une taille
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      {createForm.sizes.map((size, index) => (
+                        <div key={index} className="grid grid-cols-3 gap-3 p-3 border rounded">
+                          <div className="grid gap-2">
+                            <Label htmlFor={`size-name-${index}`}>Nom de la taille</Label>
+                            <Input
+                              id={`size-name-${index}`}
+                              value={size.name}
+                              onChange={(e) =>
+                                setCreateForm(prev => ({
+                                  ...prev,
+                                  sizes: prev.sizes.map((s, i) =>
+                                    i === index ? { ...s, name: e.target.value } : s
+                                  ),
+                                }))
+                              }
+                              placeholder="Ex: S, M, L, XL"
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor={`size-price-${index}`}>Prix (DT)</Label>
+                            <Input
+                              id={`size-price-${index}`}
+                              type="number"
+                              step="0.01"
+                              value={size.price}
+                              onChange={(e) =>
+                                setCreateForm(prev => ({
+                                  ...prev,
+                                  sizes: prev.sizes.map((s, i) =>
+                                    i === index ? { ...s, price: e.target.value } : s
+                                  ),
+                                }))
+                              }
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor={`size-stock-${index}`}>Stock</Label>
+                            <Input
+                              id={`size-stock-${index}`}
+                              type="number"
+                              value={size.stock}
+                              onChange={(e) =>
+                                setCreateForm(prev => ({
+                                  ...prev,
+                                  sizes: prev.sizes.map((s, i) =>
+                                    i === index ? { ...s, stock: e.target.value } : s
+                                  ),
+                                }))
+                              }
+                              placeholder="0"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive"
+                              onClick={() =>
+                                setCreateForm(prev => ({
+                                  ...prev,
+                                  sizes: prev.sizes.filter((_, i) => i !== index),
+                                }))
+                              }
+                            >
+                              Supprimer
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      {createForm.sizes.length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          Aucune taille ajoutée. Cliquez sur "Ajouter une taille" pour commencer.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+  
                 <div className="grid gap-2">
                   <Label htmlFor="csC">Commission Client (CsC) %</Label>
                   <Input
@@ -736,6 +918,7 @@ export default function Products() {
                       setEditForm(prev => ({ ...prev, stock: e.target.value }))
                     }
                     placeholder="0"
+                    disabled={editForm.hasSizes}
                   />
                 </div>
               </div>
@@ -775,7 +958,141 @@ export default function Products() {
                     max="100"
                   />
                 </div>
-
+  
+                {/* Size Management for Edit */}
+                <div className="grid gap-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="edit-hasSizes"
+                      checked={editForm.hasSizes}
+                      onChange={(e) =>
+                        setEditForm(prev => ({
+                          ...prev,
+                          hasSizes: e.target.checked,
+                          stock: e.target.checked ? '0' : prev.stock,
+                        }))
+                      }
+                    />
+                    <Label htmlFor="edit-hasSizes">Ce produit a plusieurs tailles</Label>
+                  </div>
+                </div>
+  
+                {!editForm.hasSizes && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-stock">Stock</Label>
+                    <Input
+                      id="edit-stock"
+                      type="number"
+                      value={editForm.stock}
+                      onChange={e =>
+                        setEditForm(prev => ({ ...prev, stock: e.target.value }))
+                      }
+                      placeholder="0"
+                    />
+                  </div>
+                )}
+  
+                {editForm.hasSizes && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label>Tailles du produit</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setEditForm(prev => ({
+                            ...prev,
+                            sizes: [
+                              ...prev.sizes,
+                              { name: '', price: '', stock: '0' },
+                            ],
+                          }))
+                        }
+                      >
+                        + Ajouter une taille
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      {editForm.sizes.map((size, index) => (
+                        <div key={index} className="grid grid-cols-3 gap-3 p-3 border rounded">
+                          <div className="grid gap-2">
+                            <Label htmlFor={`edit-size-name-${index}`}>Nom de la taille</Label>
+                            <Input
+                              id={`edit-size-name-${index}`}
+                              value={size.name}
+                              onChange={(e) =>
+                                setEditForm(prev => ({
+                                  ...prev,
+                                  sizes: prev.sizes.map((s, i) =>
+                                    i === index ? { ...s, name: e.target.value } : s
+                                  ),
+                                }))
+                              }
+                              placeholder="Ex: S, M, L, XL"
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor={`edit-size-price-${index}`}>Prix (DT)</Label>
+                            <Input
+                              id={`edit-size-price-${index}`}
+                              type="number"
+                              step="0.01"
+                              value={size.price}
+                              onChange={(e) =>
+                                setEditForm(prev => ({
+                                  ...prev,
+                                  sizes: prev.sizes.map((s, i) =>
+                                    i === index ? { ...s, price: e.target.value } : s
+                                  ),
+                                }))
+                              }
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor={`edit-size-stock-${index}`}>Stock</Label>
+                            <Input
+                              id={`edit-size-stock-${index}`}
+                              type="number"
+                              value={size.stock}
+                              onChange={(e) =>
+                                setEditForm(prev => ({
+                                  ...prev,
+                                  sizes: prev.sizes.map((s, i) =>
+                                    i === index ? { ...s, stock: e.target.value } : s
+                                  ),
+                                }))
+                              }
+                              placeholder="0"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive"
+                              onClick={() =>
+                                setEditForm(prev => ({
+                                  ...prev,
+                                  sizes: prev.sizes.filter((_, i) => i !== index),
+                                }))
+                              }
+                            >
+                              Supprimer
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      {editForm.sizes.length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          Aucune taille ajoutée. Cliquez sur "Ajouter une taille" pour commencer.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+  
                 <div className="grid gap-2">
                   <Label htmlFor="edit-csC">Commission Client (CsC) %</Label>
                   <Input
@@ -1061,6 +1378,23 @@ export default function Products() {
                         </div>
                       </div>
                       
+                      {product.sizes && product.sizes.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-xs text-muted-foreground font-semibold">Tailles disponibles:</span>
+                          <div className="grid gap-2">
+                            {product.sizes.map((size, index) => (
+                              <div key={index} className="bg-muted/50 rounded p-2 flex justify-between items-center">
+                                <span className="text-sm">{size.name}</span>
+                                <div className="flex gap-4 text-sm">
+                                  <span className="font-semibold">{size.price} DT</span>
+                                  <span className="text-muted-foreground">Stock: {size.stock || 0}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div className="bg-muted/50 rounded p-2">
                           <span className="text-muted-foreground">CsR: </span>
@@ -1148,3 +1482,4 @@ export default function Products() {
     </div>
   );
 }
+

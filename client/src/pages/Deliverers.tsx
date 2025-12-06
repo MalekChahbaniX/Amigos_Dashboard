@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, UserPlus, MapPin, Package } from "lucide-react";
+import { Search, UserPlus, MapPin, Package, Trash } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -58,6 +58,7 @@ export default function Deliverers() {
   const [totalPages, setTotalPages] = useState(1);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState<CreateDelivererForm>({
     name: "",
     phone: "",
@@ -160,6 +161,38 @@ export default function Deliverers() {
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteDeliverer = async (id: string) => {
+    const confirmed = window.confirm('Supprimer ce livreur ? Cette action est irréversible.');
+    if (!confirmed) return;
+
+    setDeletingId(id);
+    try {
+      await apiService.deleteDeliverer(id);
+
+      toast({
+        title: 'Succès',
+        description: 'Livreur supprimé avec succès',
+      });
+
+      // Remove from local state
+      setDeliverers((prev) => prev.filter((d) => d.id !== id));
+      setDelivererStates((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    } catch (error: any) {
+      console.error('Error deleting deliverer:', error);
+      toast({
+        title: 'Erreur',
+        description: error?.message || "Erreur lors de la suppression du livreur",
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -437,6 +470,17 @@ export default function Deliverers() {
                         onCheckedChange={() => handleToggleActive(deliverer.id)}
                         data-testid={`switch-active-${deliverer.id}`}
                       />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteDeliverer(deliverer.id)}
+                        disabled={deletingId === deliverer.id}
+                        data-testid={`button-delete-${deliverer.id}`}
+                        className="ml-2"
+                        aria-label="Supprimer le livreur"
+                      >
+                        <Trash className="h-4 w-4 text-destructive" />
+                      </Button>
                     </div>
                   </div>
                 </div>

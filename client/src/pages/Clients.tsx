@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, UserPlus, Eye, Ban, Check } from "lucide-react";
+import { Search, UserPlus, Eye, Ban, Check, Trash } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -53,6 +53,10 @@ export default function Clients() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState<CreateClientForm>({
     name: "",
     phone: "",
@@ -121,6 +125,60 @@ export default function Clients() {
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleViewClient = async (id: string) => {
+    try {
+      setViewDialogOpen(true);
+      setSelectedClient(null);
+      const client = await apiService.getClientById(id);
+      setSelectedClient(client);
+    } catch (error: any) {
+      console.error('Error fetching client details:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de charger les détails du client',
+        variant: 'destructive',
+      });
+      setViewDialogOpen(false);
+    }
+  };
+
+  const handleToggleClientStatus = async (id: string, currentStatus: 'active' | 'inactive') => {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    setTogglingId(id);
+
+    // Optimistic update
+    setClients(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c));
+
+    try {
+      await apiService.updateClientStatus(id, newStatus);
+      toast({ title: 'Succès', description: `Statut mis à jour: ${newStatus}` });
+    } catch (error: any) {
+      console.error('Error updating client status:', error);
+      // Revert
+      setClients(prev => prev.map(c => c.id === id ? { ...c, status: currentStatus } : c));
+      toast({ title: 'Erreur', description: error?.message || "Impossible de changer le statut", variant: 'destructive' });
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  const handleDeleteClient = async (id: string) => {
+    const confirmed = window.confirm('Supprimer ce client ? Cette action est irréversible.');
+    if (!confirmed) return;
+
+    setDeletingId(id);
+    try {
+      await apiService.deleteClient(id);
+      setClients(prev => prev.filter(c => c.id !== id));
+      toast({ title: 'Succès', description: 'Client supprimé avec succès' });
+    } catch (error: any) {
+      console.error('Error deleting client:', error);
+      toast({ title: 'Erreur', description: error?.message || 'Erreur lors de la suppression du client', variant: 'destructive' });
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -282,6 +340,7 @@ export default function Clients() {
                       size="icon"
                       className="h-8 w-8 sm:h-10 sm:w-10"
                       data-testid={`button-view-${client.id}`}
+                      onClick={() => handleViewClient(client.id)}
                     >
                       <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
@@ -290,12 +349,24 @@ export default function Clients() {
                       size="icon"
                       className="h-8 w-8 sm:h-10 sm:w-10"
                       data-testid={`button-toggle-status-${client.id}`}
+                      onClick={() => handleToggleClientStatus(client.id, client.status)}
+                      disabled={togglingId === client.id}
                     >
                       {client.status === 'active' ? (
                         <Ban className="h-3 w-3 sm:h-4 sm:w-4 text-destructive" />
                       ) : (
                         <Check className="h-3 w-3 sm:h-4 sm:w-4 text-chart-2" />
                       )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 sm:h-10 sm:w-10"
+                      data-testid={`button-delete-${client.id}`}
+                      onClick={() => handleDeleteClient(client.id)}
+                      disabled={deletingId === client.id}
+                    >
+                      <Trash className="h-3 w-3 sm:h-4 sm:w-4 text-destructive" />
                     </Button>
                   </div>
                 </div>
@@ -306,6 +377,38 @@ export default function Clients() {
           </div>
         </CardContent>
       </Card>
+      {/* View Client Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Détails du client</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {selectedClient ? (
+              <div className="space-y-3">
+                <p className="font-medium text-lg">{selectedClient.name}</p>
+                <p className="text-sm text-muted-foreground">{selectedClient.email}</p>
+                <p className="text-sm text-muted-foreground">{selectedClient.phone}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Statut</p>
+                    <p className="font-semibold">{selectedClient.status}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Date d'inscription</p>
+                    <p className="font-semibold">{selectedClient.joinDate}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p>Chargement...</p>
+            )}
+          </div>
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setViewDialogOpen(false)}>Fermer</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

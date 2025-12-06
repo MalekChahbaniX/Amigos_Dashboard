@@ -1,6 +1,6 @@
 // src/components/admin/ProductForm.tsx
 import { useState, useEffect } from 'react';
-import { Upload, X, Check } from 'lucide-react';
+import { Upload, X, Check, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -47,12 +47,23 @@ interface Product {
    providerId?: string;
    optionGroups?: string[];
    availability?: boolean;
+   sizes?: Array<{
+    name: string;
+    price: number;
+    stock?: number;
+  }>;
  }
 
 interface ProductFormProps {
   product?: Product | null;
   onSuccess: () => void;
   onCancel: () => void;
+}
+
+interface ProductSize {
+  name: string;
+  price: string;
+  stock?: string;
 }
 
 interface FormDataType {
@@ -69,6 +80,7 @@ interface FormDataType {
   csR: string;
   csC: string;
   deliveryCategory: string;
+  sizes: ProductSize[];
 }
 
 const categories = [
@@ -108,6 +120,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     csR: '5',
     csC: '0',
     deliveryCategory: 'restaurant',
+    sizes: [],
   });
 
   useEffect(() => {
@@ -130,9 +143,34 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         csR: (product as any).csR?.toString() || '5',
         csC: (product as any).csC?.toString() || '0',
         deliveryCategory: (product as any).deliveryCategory || 'restaurant',
+        sizes: product.sizes?.map(s => ({
+          name: s.name,
+          price: s.price.toString(),
+          stock: s.stock?.toString() || '0'
+        })) || [],
       });
     }
   }, [product]);
+
+  const addSize = () => {
+    setFormData(prev => ({
+      ...prev,
+      sizes: [...prev.sizes, { name: '', price: '0', stock: '0' }]
+    }));
+  };
+
+  const removeSize = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      sizes: prev.sizes.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateSize = (index: number, field: keyof ProductSize, value: string) => {
+    const newSizes = [...formData.sizes];
+    newSizes[index] = { ...newSizes[index], [field]: value };
+    setFormData(prev => ({ ...prev, sizes: newSizes }));
+  };
 
   const fetchOptionGroups = async () => {
     try {
@@ -193,6 +231,14 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
     try {
       setLoading(true);
+      const formattedSizes = formData.sizes
+        .filter(s => s.name.trim() !== '')
+        .map(s => ({
+          name: s.name,
+          price: parseFloat(s.price) || 0,
+          stock: parseInt(s.stock || '0') || 0
+        }));
+
       const productData = {
         name: formData.name.trim(),
         description: formData.description.trim(),
@@ -207,6 +253,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         csR: parseInt(formData.csR) || 0,
         csC: parseInt(formData.csC) || 0,
         deliveryCategory: formData.deliveryCategory,
+        sizes: formattedSizes,
       };
 
       if (product) {
@@ -269,7 +316,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Prix *</Label>
+                  <Label htmlFor="price">Prix de base *</Label>
                   <Input
                     id="price"
                     type="number"
@@ -280,10 +327,13 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                     min="0"
                     required
                   />
+                  <p className="text-xs text-muted-foreground">
+                    {formData.sizes.length > 0 ? 'Prix de référence (les tailles auront leurs propres prix)' : 'Prix du produit'}
+                  </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="stock">Stock</Label>
+                  <Label htmlFor="stock">Stock global</Label>
                   <Input
                     id="stock"
                     type="number"
@@ -291,12 +341,18 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                     value={formData.stock}
                     onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
                     min="0"
+                    disabled={formData.sizes.length > 0}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    {formData.sizes.length > 0 ? 'Géré par taille' : 'Stock total disponible'}
+                  </p>
                 </div>
               </div>
 
+
+
               {/* Commission Settings */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="csR">Commission Restaurant (CsR) %</Label>
                   <Input
@@ -380,6 +436,93 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                   </SelectContent>
                 </Select>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Sizes Section */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Tailles / Variantes</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Optionnel - Pour les produits avec plusieurs tailles
+                  </p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={addSize}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Ajouter une taille
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {formData.sizes.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed rounded-lg bg-muted/20">
+                  <p className="text-sm text-muted-foreground">
+                    Aucune taille définie
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Le prix de base sera utilisé pour ce produit
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {formData.sizes.map((size, index) => (
+                    <div
+                      key={index}
+                      className="flex items-end gap-3 p-4 border-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex-1 space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground">
+                          Nom de la taille
+                        </Label>
+                        <Input
+                          value={size.name}
+                          onChange={(e) => updateSize(index, "name", e.target.value)}
+                          placeholder="Ex: S, M, L, XL"
+                          className="h-10"
+                        />
+                      </div>
+                      <div className="w-32 space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground">
+                          Prix (TND)
+                        </Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={size.price}
+                          onChange={(e) => updateSize(index, "price", e.target.value)}
+                          min="0"
+                          placeholder="0.00"
+                          className="h-10"
+                        />
+                      </div>
+                      <div className="w-24 space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground">
+                          Stock
+                        </Label>
+                        <Input
+                          type="number"
+                          value={size.stock}
+                          onChange={(e) => updateSize(index, "stock", e.target.value)}
+                          min="0"
+                          placeholder="0"
+                          className="h-10"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => removeSize(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 

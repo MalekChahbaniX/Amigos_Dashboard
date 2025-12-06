@@ -422,6 +422,10 @@ class ApiService {
     return this.uploadFile(file, '/upload/provider');
   }
 
+  async uploadProviderProfileImage(file: File): Promise<{ imageUrl: string }> {
+    return this.uploadFile(file, '/upload/provider');
+  }
+
   async createProvider(providerData: {
     name: string;
     type: "restaurant" | "course" | "pharmacy";
@@ -431,6 +435,8 @@ class ApiService {
     description?: string;
     image?: string;
     imageFile?: File;
+    profileImage?: string | File;
+    profileImageFile?: File;
     location?: {
       latitude: number;
       longitude: number;
@@ -449,6 +455,7 @@ class ApiService {
       rating: number;
       status: "active" | "inactive";
       image?: string;
+      profileImage?: string;
     };
   }> {
     // If there's a file, upload it first
@@ -459,12 +466,21 @@ class ApiService {
         const uploadResult = await this.uploadProviderImage(providerData.imageFile);
         finalProviderData.image = uploadResult.imageUrl;
       } catch (error) {
-        throw new Error('Failed to upload image');
+        throw new Error('Failed to upload cover image');
       }
     }
 
-    // Remove the file from data before sending to API
-    const { imageFile, ...apiData } = finalProviderData;
+    if (providerData.profileImageFile) {
+      try {
+        const uploadResult = await this.uploadProviderProfileImage(providerData.profileImageFile);
+        finalProviderData.profileImage = uploadResult.imageUrl;
+      } catch (error) {
+        throw new Error('Failed to upload profile image');
+      }
+    }
+
+    // Remove the files from data before sending to API
+    const { imageFile, profileImageFile, ...apiData } = finalProviderData;
 
     return this.request('/providers', {
       method: 'POST',
@@ -481,6 +497,8 @@ class ApiService {
     description?: string;
     image?: string;
     imageFile?: File;
+    profileImage?: string | File;
+    profileImageFile?: File;
     location?: {
       latitude: number;
       longitude: number;
@@ -501,6 +519,7 @@ class ApiService {
       rating: number;
       status: "active" | "inactive";
       image?: string;
+      profileImage?: string;
     };
   }> {
     // If there's a file, upload it first
@@ -511,12 +530,21 @@ class ApiService {
         const uploadResult = await this.uploadProviderImage(providerData.imageFile);
         finalProviderData.image = uploadResult.imageUrl;
       } catch (error) {
-        throw new Error('Failed to upload image');
+        throw new Error('Failed to upload cover image');
       }
     }
 
-    // Remove the file from data before sending to API
-    const { imageFile, ...apiData } = finalProviderData;
+    if (providerData.profileImageFile) {
+      try {
+        const uploadResult = await this.uploadProviderProfileImage(providerData.profileImageFile);
+        finalProviderData.profileImage = uploadResult.imageUrl;
+      } catch (error) {
+        throw new Error('Failed to upload profile image');
+      }
+    }
+
+    // Remove the files from data before sending to API
+    const { imageFile, profileImageFile, ...apiData } = finalProviderData;
 
     return this.request(`/providers/${id}`, {
       method: 'PUT',
@@ -572,6 +600,13 @@ class ApiService {
           price?: number;
         }>;
       }>;
+      sizes?: Array<{
+        name: string;
+        price: number;
+        stock?: number;
+        p1?: number;
+        p2?: number;
+      }>;
     }>;
     total: number;
     page: number;
@@ -608,6 +643,13 @@ class ApiService {
         name: string;
         price?: number;
       }>;
+    }>;
+    sizes?: Array<{
+      name: string;
+      price: number;
+      stock?: number;
+      p1?: number;
+      p2?: number;
     }>;
   }> {
     return this.request(`/products/${id}`);
@@ -664,6 +706,7 @@ class ApiService {
     sizes?: Array<{
       name: string;
       price: number;
+      stock?: number;
       optionGroups?: string[];
     }>;
     options?: Array<{
@@ -694,6 +737,7 @@ class ApiService {
       sizes?: Array<{
         name: string;
         price: number;
+        stock?: number;
         optionGroups?: string[];
       }>;
       options?: Array<{
@@ -745,6 +789,7 @@ class ApiService {
     sizes?: Array<{
       name: string;
       price: number;
+      stock?: number;
       optionGroups?: string[];
     }>;
     options?: Array<{
@@ -774,6 +819,7 @@ class ApiService {
       sizes?: Array<{
         name: string;
         price: number;
+        stock?: number;
         optionGroups?: string[];
       }>;
       options?: Array<{
@@ -1435,7 +1481,7 @@ class ApiService {
   }
 
   // Reset app settings to default
-  async resetAppSettings(updatedBy?: string): Promise<{
+  async resetAppSettings(): Promise<{
     message: string;
     data: {
       appFee: number;
@@ -1446,7 +1492,7 @@ class ApiService {
   }> {
     return this.request('/app-settings/reset', {
       method: 'PUT',
-      body: JSON.stringify({ updatedBy }),
+      body: JSON.stringify({}),
     });
   }
 
@@ -1659,12 +1705,6 @@ async deleteProductOption(id: string): Promise<{
     method: 'DELETE',
   });
 }
-
-
-
-
-
-
 
   // Deliverer authentication methods
   async loginDeliverer(credentials: { phoneNumber: string }): Promise<{
