@@ -56,6 +56,11 @@ const menuItems = [
     icon: Store,
   },
   {
+    title: "Sessions livreurs",
+    url: "/deliverer-sessions",
+    icon: Truck,
+  },
+  {
     title: "Produits",
     url: "/products",
     icon: Package,

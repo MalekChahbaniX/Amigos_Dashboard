@@ -1,7 +1,7 @@
 // API Configuration
 // 
-const API_BASE_URL ='https://amigosdelivery25.com/api';
-//const API_BASE_URL ='http://192.168.1.104:5000/api';
+//const API_BASE_URL ='https://amigosdelivery25.com/api';
+const API_BASE_URL ='http://192.168.1.104:5000/api';
 
 interface LoginResponse {
   _id: string;
@@ -76,6 +76,16 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
+      
+      // Handle 401/403 - Clear auth data
+      if (response.status === 401 || response.status === 403) {
+        console.warn('Auth failed:', response.status);
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        // Redirect to login
+        window.location.href = '/login';
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -135,6 +145,7 @@ class ApiService {
     limit?: number;
     search?: string;
     status?: string;
+    type?: string;
   }): Promise<{
     orders: Array<{
       id: string;
@@ -164,6 +175,7 @@ class ApiService {
     if (params?.limit) searchParams.append('limit', params.limit.toString());
     if (params?.search) searchParams.append('search', params.search);
     if (params?.status) searchParams.append('status', params.status);
+    if (params?.type) searchParams.append('type', params.type);
     
     return this.request(`/dashboard/orders?${searchParams}`);
   }
@@ -179,9 +191,15 @@ class ApiService {
 
   // Authentication methods
   async logoutSuperAdmin(): Promise<{ message: string }> {
-    return this.request('/auth/logout', {
-      method: 'POST',
-    });
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    return Promise.resolve({ message: 'Déconnecté' });
+  }
+
+  async logoutDeliverer(): Promise<{ message: string }> {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    return Promise.resolve({ message: 'Déconnecté' });
   }
 
   // Client management methods
@@ -302,6 +320,68 @@ class ApiService {
     params.append('_t', Date.now().toString());
 
     return this.request(`/deliverers?${params}`);
+  }
+
+  // Sessions management for deliverers (admin)
+  async getDelivererSessions(params?: { page?: number; limit?: number; active?: boolean }): Promise<{
+    sessions: Array<{
+      id: string;
+      deliverer: {
+        id: string;
+        name: string;
+        phone?: string;
+      };
+      startTime: string;
+      endTime?: string | null;
+      active: boolean;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.append('page', String(params.page));
+    if (params?.limit) qs.append('limit', String(params.limit));
+    if (params?.active !== undefined) qs.append('active', params.active ? '1' : '0');
+    qs.append('_t', Date.now().toString());
+    return this.request(`/deliverers/sessions?${qs.toString()}`);
+  }
+
+  // Methods deliverer-side for starting/stopping and checking current session
+  async startDelivererSession(): Promise<{ success: boolean; message: string; session?: any }> {
+    // deliverer routes are mounted under /api/deliverer (singular)
+    return this.request('/deliverer/session/start', { method: 'POST' });
+  }
+
+  // Alias used in some builds
+  async startSession(): Promise<{ success: boolean; message: string; session?: any }> {
+    return this.startDelivererSession();
+  }
+
+  async endDelivererSession(): Promise<{ success: boolean; message: string; session?: any }> {
+    return this.request('/deliverer/session/stop', { method: 'POST' });
+  }
+
+  // Alias
+  async endSession(): Promise<{ success: boolean; message: string; session?: any }> {
+    return this.endDelivererSession();
+  }
+
+  // Get the current active session for the authenticated deliverer (if any)
+  async getDelivererSession(): Promise<{ active: boolean; startedAt?: string | null; session?: any }> {
+    try {
+      // Use the deliverer-scoped sessions endpoint (mounted under /api/deliverer)
+      const resp = await this.request<any>(`/deliverer/sessions?active=1&page=1&limit=1&_t=${Date.now()}`);
+      const first = Array.isArray(resp.sessions) && resp.sessions.length > 0 ? resp.sessions[0] : null;
+      if (first) {
+        return { active: Boolean(first.active), startedAt: first.startTime || first.createdAt || null, session: first };
+      }
+      return { active: false, startedAt: null };
+    } catch (error) {
+      console.error('Error in getDelivererSession:', error);
+      return { active: false, startedAt: null };
+    }
   }
 
   async getDelivererById(id: string): Promise<{
@@ -1729,6 +1809,23 @@ async deleteProductOption(id: string): Promise<{
     });
   }
 
+  async loginProvider(credentials: { email: string; password: string }): Promise<{
+    _id: string;
+    name: string;
+    email: string;
+    type: string;
+    role: string;
+    isVerified: boolean;
+    status: string;
+    token: string;
+    message: string;
+  }> {
+    return this.request('/auth/login-provider', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+  }
+
   async registerDeliverer(userData: {
     phoneNumber: string;
     firstName: string;
@@ -1915,7 +2012,7 @@ async deleteProductOption(id: string): Promise<{
     });
   }
 
-  async updateOrderStatus(orderId: string, status: string): Promise<{
+  async updateOrderStatus(orderId: string, status: string, additionalData?: any): Promise<{
     success: boolean;
     message: string;
     order?: {
@@ -1924,9 +2021,10 @@ async deleteProductOption(id: string): Promise<{
       updatedAt: string;
     };
   }> {
+    const body = { status, ...additionalData };
     return this.request(`/deliverer/orders/${orderId}/status`, {
       method: 'PUT',
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(body),
     });
   }
 
@@ -1945,12 +2043,119 @@ async deleteProductOption(id: string): Promise<{
     });
   }
 
-  // Deliverer logout method
-  async logoutDeliverer(): Promise<{
+  // Deliverer statistics endpoint (#1 dashboard)
+  async getDelivererStatistics(): Promise<{
+    success: boolean;
+    statistics?: {
+      amigosCashToday: number;
+      yourCashToday: number;
+      ordersCompletedToday: number;
+      ordersRejectedToday: number;
+      cancellationSoldeToday: number;
+      totalDelivered: number;
+      totalCancelled: number;
+      totalSoldeAmigos: number;
+      totalCancellationSolde: number;
+      todayDate: string;
+      delivererName: string;
+      currency: string;
+    };
+  }> {
+    return this.request('/deliverer/statistics', {
+      method: 'GET',
+    });
+  }
+
+  // Provider dashboard methods
+  async getProviderProfile(): Promise<{
+    success: boolean;
+    provider?: {
+      id: string;
+      name: string;
+      type: 'restaurant' | 'pharmacy' | 'course' | 'store';
+      phone: string;
+      address: string;
+      email?: string;
+      description?: string;
+      location?: any;
+      image?: string;
+      profileImage?: string;
+      status: string;
+      createdAt: string;
+    };
+  }> {
+    return this.request('/providers/me/profile', {
+      method: 'GET',
+    });
+  }
+
+  async getProviderEarnings(): Promise<{
+    success: boolean;
+    earnings?: {
+      totalEarnings: number;
+      averageEarnings: number;
+      deliveredOrders: number;
+      totalUnpaid: number;
+      currency: string;
+    };
+  }> {
+    return this.request('/providers/me/earnings', {
+      method: 'GET',
+    });
+  }
+
+  async getProviderDailyBalance(): Promise<{
+    success: boolean;
+    provider?: {
+      id: string;
+      name: string;
+      type: string;
+    };
+    dailyBalance?: Array<{
+      id: string;
+      date: string;
+      orders: Array<{
+        id: string;
+        orderNumber: string;
+        payout: number;
+      }>;
+      totalPayout: number;
+      paymentMode: 'especes' | 'facture' | 'virement';
+      paid: boolean;
+      paidAt: string | null;
+      orderCount: number;
+    }>;
+    currency?: string;
+  }> {
+    return this.request('/providers/me/daily-balance', {
+      method: 'GET',
+    });
+  }
+
+  async payProviderBalance(
+    balanceId: string,
+    paymentMode: 'especes' | 'facture' | 'virement'
+  ): Promise<{
+    success: boolean;
+    message: string;
+    balance?: {
+      id: string;
+      amount: number;
+      paymentMode: string;
+      paidAt: string;
+    };
+  }> {
+    return this.request('/providers/me/balance/pay', {
+      method: 'PUT',
+      body: JSON.stringify({ balanceId, paymentMode }),
+    });
+  }
+
+  async logoutProvider(): Promise<{
     success: boolean;
     message: string;
   }> {
-    return this.request('/deliverer/logout', {
+    return this.request('/providers/logout', {
       method: 'POST',
     });
   }

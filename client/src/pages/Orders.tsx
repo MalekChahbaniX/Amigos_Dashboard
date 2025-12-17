@@ -19,7 +19,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import OrderGroupBadge from "@/components/OrderGroupBadge";
+import OrderTypeBadge from "@/components/OrderTypeBadge";
 import { apiService } from "@/lib/api";
+
+type OrderType = "A1" | "A2" | "A3" | "A4" | undefined;
+
+type GroupType = "A2" | "A3" | undefined;
 
 interface Order {
   id: string;
@@ -38,6 +44,13 @@ interface Order {
     quantity: number;
     price: number;
   }>;
+  orderType?: OrderType;
+  soldeSimple?: string | number;
+  soldeDual?: string | number;
+  soldeTriple?: string | number;
+  soldeAmigos?: string | number;
+  isGrouped?: boolean;
+  groupType?: GroupType | null;
 }
 
 interface OrdersResponse {
@@ -53,21 +66,45 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const fetchOrders = async (page = 1) => {
+  const fetchOrders = async (page = 1, typeParam?: OrderType) => {
     try {
       setLoading(true);
+      const typeToSend = typeParam !== undefined ? typeParam : (typeFilter !== 'all' ? (typeFilter as OrderType) : undefined);
       const data = await apiService.getAllOrders({
         page,
         limit: 10,
         search: searchQuery || undefined,
-        status: statusFilter !== "all" ? statusFilter : undefined
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        type: typeToSend,
       });
-      
-      setOrders(data.orders);
+      // normalize and validate incoming orders
+      const normalizeOrderType = (raw: any): OrderType => {
+        const v = raw?.orderType ?? raw?.type ?? raw?.order_type;
+        if (v === 'A1' || v === 'A2' || v === 'A3' || v === 'A4') return v;
+        return undefined;
+      };
+
+      const normalizeGroupType = (raw: any): GroupType | null => {
+        const g = raw?.groupType ?? raw?.group_type ?? raw?.group;
+        if (g === 'A2' || g === 'A3') return g;
+        return g ? String(g) as any : null;
+      };
+
+      const normalized = Array.isArray(data.orders)
+        ? data.orders.map((o: any) => ({
+            ...o,
+            orderType: normalizeOrderType(o),
+            groupType: normalizeGroupType(o),
+            isGrouped: Boolean(o.isGrouped || o.grouped || o.groupedOrderIds),
+          }))
+        : [];
+
+      setOrders(normalized as Order[]);
       setTotalPages(data.totalPages);
       setCurrentPage(data.page);
     } catch (error) {
@@ -78,8 +115,12 @@ export default function Orders() {
   };
 
   useEffect(() => {
-    fetchOrders(1);
-  }, [searchQuery, statusFilter]);
+    fetchOrders(1, typeFilter !== 'all' ? (typeFilter as OrderType) : undefined);
+  }, [searchQuery, statusFilter, typeFilter]);
+
+  // Derived client-side filter by order type
+  // Server-side filtering by `typeFilter` is used; still keep the variable for rendering
+  const visibleOrders = orders;
 
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
     try {
@@ -92,7 +133,7 @@ export default function Orders() {
       });
 
       if (response.ok) {
-        fetchOrders(currentPage);
+        fetchOrders(currentPage, typeFilter !== 'all' ? (typeFilter as OrderType) : undefined);
         setSelectedOrder(null);
       }
     } catch (error) {
@@ -111,7 +152,7 @@ export default function Orders() {
       });
 
       if (response.ok) {
-        fetchOrders(currentPage);
+        fetchOrders(currentPage, typeFilter !== 'all' ? (typeFilter as OrderType) : undefined);
         setSelectedOrder(null);
       }
     } catch (error) {
@@ -166,48 +207,81 @@ export default function Orders() {
                 <SelectItem value="cancelled">Annulée</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-full xs:w-[140px] sm:w-[150px] min-h-[44px] xs:min-h-[40px] text-sm xs:text-base" data-testid="select-type-filter">
+                <SelectValue placeholder="Filtrer par type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les types</SelectItem>
+                <SelectItem value="A1">A1</SelectItem>
+                <SelectItem value="A2">A2</SelectItem>
+                <SelectItem value="A3">A3</SelectItem>
+                <SelectItem value="A4">A4</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {orders.length > 0 ? orders.map((order) => (
+            {visibleOrders.length > 0 ? visibleOrders.map((order) => (
               <div
                 key={order.id}
                 className="flex flex-col xs:flex-row xs:items-center xs:justify-between p-3 xs:p-4 sm:p-5 rounded-lg border hover-elevate gap-3 xs:gap-4 transition-all duration-200"
                 data-testid={`order-row-${order.id}`}
               >
-                <div className="flex items-start xs:items-center gap-3 xs:gap-4 flex-1">
-                  <div className="flex flex-col gap-1 min-w-[80px] xs:min-w-[100px]">
-                    <span className="font-mono font-medium text-sm xs:text-base">{order.orderNumber}</span>
-                    <span className="text-xs text-muted-foreground">{order.date}</span>
+                <div className="flex items-start xs:items-center gap-3 xs:gap-4 w-full">
+                  {/* Left: order identity */}
+                  <div className="flex items-start xs:items-center gap-3 xs:gap-4 flex-1 min-w-0">
+                    <div className="flex flex-col gap-1 min-w-[80px] xs:min-w-[100px]">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-medium text-sm xs:text-base">{order.orderNumber}</span>
+                        <OrderTypeBadge type={order.orderType} />
+                      </div>
+                      <span className="text-xs text-muted-foreground">{order.date}</span>
+                    </div>
+                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                      <span className="font-medium text-sm xs:text-base truncate">{order.client}</span>
+                      <span className="text-xs xs:text-sm text-muted-foreground truncate">{order.provider}</span>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-1 min-w-0 flex-1">
-                    <span className="font-medium text-sm xs:text-base truncate">{order.client}</span>
-                    <span className="text-xs xs:text-sm text-muted-foreground truncate">{order.provider}</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between xs:justify-end gap-3 xs:gap-4 w-full xs:w-auto">
-                  <div className="text-center xs:text-right">
+
+                  {/* Middle-right: total / deliverer */}
+                  <div className="flex flex-col items-end xs:items-end w-[150px] xs:w-[180px] flex-shrink-0">
                     <div className="font-semibold text-sm xs:text-base">{order.total}</div>
                     {order.solde && (
                       <div className="text-xs text-chart-2 font-medium">Solde: {order.solde}</div>
                     )}
                     {order.deliverer && (
-                      <div className="text-xs text-muted-foreground truncate max-w-[100px] xs:max-w-none">{order.deliverer}</div>
+                      <div className="text-xs text-muted-foreground truncate max-w-[150px] xs:max-w-none">{order.deliverer}</div>
                     )}
                   </div>
-                  <div className="flex-shrink-0">
+
+                  {/* Dedicated grouped column */}
+                  <div className="flex items-center justify-center w-[120px] xs:w-[140px] flex-shrink-0">
+                    {order.isGrouped ? (
+                      <OrderGroupBadge isGrouped={order.isGrouped} groupType={order.groupType} />
+                    ) : (
+                      <div className="text-xs text-muted-foreground">—</div>
+                    )}
+                  </div>
+
+                  {/* Status */}
+                  <div className="flex-shrink-0 px-2">
                     <OrderStatusBadge status={order.status} />
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSelectedOrder(order)}
-                    className="h-8 w-8 xs:h-9 xs:w-9 sm:h-10 sm:w-10 flex-shrink-0 touch-manipulation"
-                    data-testid={`button-view-${order.id}`}
-                  >
-                    <Eye className="h-3 w-3 xs:h-3.5 xs:w-3.5 sm:h-4 sm:w-4" />
-                  </Button>
+
+                  {/* Actions */}
+                  <div className="flex-shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSelectedOrder(order)}
+                      className="h-8 w-8 xs:h-9 xs:w-9 sm:h-10 sm:w-10 flex-shrink-0 touch-manipulation"
+                      data-testid={`button-view-${order.id}`}
+                    >
+                      <Eye className="h-3 w-3 xs:h-3.5 xs:w-3.5 sm:h-4 sm:w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             )) : (
@@ -221,7 +295,7 @@ export default function Orders() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => fetchOrders(currentPage - 1)}
+                  onClick={() => fetchOrders(currentPage - 1, typeFilter !== 'all' ? (typeFilter as OrderType) : undefined)}
                   disabled={currentPage <= 1}
                   className="px-3 py-2 min-h-[36px] xs:min-h-[40px] text-sm"
                 >
@@ -230,7 +304,7 @@ export default function Orders() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => fetchOrders(currentPage + 1)}
+                  onClick={() => fetchOrders(currentPage + 1, typeFilter !== 'all' ? (typeFilter as OrderType) : undefined)}
                   disabled={currentPage >= totalPages}
                   className="px-3 py-2 min-h-[36px] xs:min-h-[40px] text-sm"
                 >
@@ -307,6 +381,34 @@ export default function Orders() {
                   <p className="text-lg xs:text-xl sm:text-2xl font-bold text-chart-2">{selectedOrder.solde}</p>
                 </div>
               )}
+
+              {/* Detailed solde breakdown */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                {selectedOrder.soldeSimple !== undefined && (
+                  <div className="flex justify-between items-center">
+                    <p className="text-sm text-muted-foreground">Solde Simple</p>
+                    <p className="font-medium">{selectedOrder.soldeSimple}</p>
+                  </div>
+                )}
+                {selectedOrder.soldeDual !== undefined && (
+                  <div className="flex justify-between items-center">
+                    <p className="text-sm text-muted-foreground">Solde Dual</p>
+                    <p className="font-medium">{selectedOrder.soldeDual}</p>
+                  </div>
+                )}
+                {selectedOrder.soldeTriple !== undefined && (
+                  <div className="flex justify-between items-center">
+                    <p className="text-sm text-muted-foreground">Solde Triple</p>
+                    <p className="font-medium">{selectedOrder.soldeTriple}</p>
+                  </div>
+                )}
+                {selectedOrder.soldeAmigos !== undefined && (
+                  <div className="flex justify-between items-center">
+                    <p className="text-sm text-muted-foreground">Solde Amigos</p>
+                    <p className="font-medium">{selectedOrder.soldeAmigos}</p>
+                  </div>
+                )}
+              </div>
 
               <div className="flex flex-col xs:flex-row gap-2 xs:gap-3 pt-4 xs:pt-6">
                 <Button className="flex-1 min-h-[44px] xs:min-h-[40px] text-sm xs:text-base touch-manipulation" data-testid="button-update-status">

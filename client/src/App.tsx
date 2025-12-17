@@ -7,12 +7,15 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AuthProvider } from "@/context/AuthContext";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Orders from "@/pages/Orders";
 import Clients from "@/pages/Clients";
 import Deliverers from "@/pages/Deliverers";
 import DelivererInterface from "@/pages/DelivererInterface";
+import DelivererSessions from "@/pages/DelivererSessions";
+import ProviderDashboard from "@/pages/ProviderDashboard";
 import Providers from "@/pages/Providers";
 import Products from "@/pages/Products";
 import Analytics from "@/pages/Analytics";
@@ -73,6 +76,11 @@ function Router() {
           <Deliverers />
         </DashboardLayout>
       </Route>
+      <Route path="/deliverer-sessions">
+        <DashboardLayout>
+          <DelivererSessions />
+        </DashboardLayout>
+      </Route>
       <Route path="/providers">
         <DashboardLayout>
           <Providers />
@@ -121,6 +129,9 @@ function Router() {
       <Route path="/deliverer-interface">
         <DelivererInterface />
       </Route>
+      <Route path="/provider-dashboard">
+        <ProviderDashboard />
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
@@ -131,8 +142,10 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>
-          <Router />
-          <Toaster />
+          <AuthProvider>
+            <Router />
+            <Toaster />
+          </AuthProvider>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

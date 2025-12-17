@@ -7,10 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiService } from "@/lib/api";
+import { useAuthContext } from "@/context/AuthContext";
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { login } = useAuthContext();
   
   // Super Admin state
   const [adminEmail, setAdminEmail] = useState("");
@@ -20,6 +22,11 @@ export default function Login() {
   // Deliverer state
   const [delivererPhone, setDelivererPhone] = useState("");
   const [delivererLoading, setDelivererLoading] = useState(false);
+
+  // Provider state
+  const [providerEmail, setProviderEmail] = useState("");
+  const [providerPassword, setProviderPassword] = useState("");
+  const [providerLoading, setProviderLoading] = useState(false);
   
   // Global state
   const [activeTab, setActiveTab] = useState("admin");
@@ -45,16 +52,17 @@ export default function Login() {
         password: adminPassword,
       });
 
-      // Store authentication token
-      localStorage.setItem('authToken', response.token);
-      localStorage.setItem('user', JSON.stringify({
-        _id: response._id,
-        firstName: response.firstName,
-        lastName: response.lastName,
-        email: response.email,
-        role: response.role,
-        isVerified: response.isVerified,
-      }));
+      // Use AuthContext to login
+      login(
+        {
+          _id: response._id,
+          firstName: response.firstName,
+          lastName: response.lastName,
+          email: response.email,
+          role: response.role,
+        },
+        response.token
+      );
 
       toast({
         title: "Succès",
@@ -96,18 +104,18 @@ export default function Login() {
         phoneNumber: delivererPhone,
       });
 
-      // Store authentication token
-      localStorage.setItem('authToken', response.token);
-      localStorage.setItem('user', JSON.stringify({
-        _id: response._id,
-        firstName: response.firstName,
-        lastName: response.lastName,
-        phoneNumber: response.phoneNumber,
-        email: response.email,
-        vehicle: response.vehicle,
-        role: response.role,
-        isVerified: response.isVerified,
-      }));
+      // Use AuthContext to login
+      login(
+        {
+          _id: response._id,
+          firstName: response.firstName,
+          lastName: response.lastName,
+          phoneNumber: response.phoneNumber,
+          email: response.email,
+          role: response.role,
+        },
+        response.token
+      );
 
       toast({
         title: "Succès",
@@ -129,6 +137,58 @@ export default function Login() {
     }
   };
 
+  // Handle Provider login
+  const handleProviderLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!providerEmail || !providerPassword) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setProviderLoading(true);
+
+    try {
+      const response = await apiService.loginProvider({
+        email: providerEmail,
+        password: providerPassword,
+      });
+
+      // Use AuthContext to login
+      login(
+        {
+          _id: response._id,
+          name: response.name,
+          email: response.email,
+          role: response.role,
+        },
+        response.token
+      );
+
+      toast({
+        title: "Succès",
+        description: response.message || "Connexion fournisseur réussie",
+      });
+
+      // Navigate to provider dashboard
+      setLocation("/provider-dashboard");
+
+    } catch (error: any) {
+      console.error('Provider login error:', error);
+      toast({
+        title: "Erreur de connexion",
+        description: error.message || "Email ou mot de passe invalide",
+        variant: "destructive",
+      });
+    } finally {
+      setProviderLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
@@ -145,7 +205,7 @@ export default function Login() {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="admin">
                 <span className="flex items-center gap-2">
                   👨‍💼 Administrateur
@@ -154,6 +214,11 @@ export default function Login() {
               <TabsTrigger value="deliverer">
                 <span className="flex items-center gap-2">
                   🚚 Livreur
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="provider">
+                <span className="flex items-center gap-2">
+                  🏪 Fournisseur
                 </span>
               </TabsTrigger>
             </TabsList>
@@ -221,6 +286,44 @@ export default function Login() {
                   data-testid="button-deliverer-login"
                 >
                   {delivererLoading ? "Connexion..." : "Se connecter en tant que livreur"}
+                </Button>
+              </form>
+            </TabsContent>
+
+            {/* Provider Login Tab */}
+            <TabsContent value="provider">
+              <form onSubmit={handleProviderLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="providerEmail">Email Fournisseur</Label>
+                  <Input
+                    id="providerEmail"
+                    type="email"
+                    placeholder="fournisseur@restaurant.com"
+                    value={providerEmail}
+                    onChange={(e) => setProviderEmail(e.target.value)}
+                    required
+                    data-testid="input-provider-email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="providerPassword">Mot de passe</Label>
+                  <Input
+                    id="providerPassword"
+                    type="password"
+                    placeholder="••••••••"
+                    value={providerPassword}
+                    onChange={(e) => setProviderPassword(e.target.value)}
+                    required
+                    data-testid="input-provider-password"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  disabled={providerLoading}
+                  data-testid="button-provider-login"
+                >
+                  {providerLoading ? "Connexion..." : "Se connecter en tant que fournisseur"}
                 </Button>
               </form>
             </TabsContent>

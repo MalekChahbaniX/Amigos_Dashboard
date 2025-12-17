@@ -8,6 +8,7 @@ import { apiService } from "@/lib/api";
 interface DelivererOrder {
   id: string;
   orderNumber: string;
+  orderType?: 'A1' | 'A2' | 'A3' | 'A4' | string;
   client: {
     name: string;
     phone: string;
@@ -25,13 +26,19 @@ interface DelivererOrder {
     price: number;
   }>;
   total: number;
-  solde: string;
+  solde: string | number;
+  soldeSimple?: number;
+  soldeDual?: number;
+  soldeTriple?: number;
   status: string;
   deliveryAddress: any;
   paymentMethod: string;
   finalAmount: number;
   createdAt: string;
   platformSolde: number;
+  isGrouped?: boolean;
+  groupedOrders?: any[];
+  providerPaymentMode?: string | any[];
 }
 
 interface DelivererProfile {
@@ -59,6 +66,7 @@ interface DelivererEarnings {
   orderCount: number;
   deliveredCount: number;
   cancelledCount: number;
+  dailySoldeAmigos?: number;
   monthly: Array<{
     month: string;
     total: number;
@@ -74,33 +82,124 @@ export default function DelivererInterface() {
   const [assignedOrders, setAssignedOrders] = useState<DelivererOrder[]>([]);
   const [delivererProfile, setDelivererProfile] = useState<DelivererProfile | null>(null);
   const [earnings, setEarnings] = useState<DelivererEarnings | null>(null);
+  const [statistics, setStatistics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Session state
+  const [isSessionActive, setIsSessionActive] = useState<boolean>(false);
+  const [sessionStartTime, setSessionStartTime] = useState<string | null>(null); // ISO timestamp
+  const [clockTick, setClockTick] = useState<number>(Date.now()); // used to refresh duration display
+
+  // Collection modal state
+  const [collectionModalOpen, setCollectionModalOpen] = useState(false);
+  const [selectedOrderForCollection, setSelectedOrderForCollection] = useState<DelivererOrder | null>(null);
+  const [paymentModes, setPaymentModes] = useState<{ [key: string]: 'especes' | 'facture' }>({});
 
   useEffect(() => {
     fetchDelivererData();
   }, []);
+
+  useEffect(() => {
+    let interval: number | undefined;
+    if (isSessionActive) {
+      interval = window.setInterval(() => setClockTick(Date.now()), 60_000);
+    }
+    return () => {
+      if (interval) window.clearInterval(interval);
+    };
+  }, [isSessionActive]);
 
   const fetchDelivererData = async () => {
     try {
       setLoading(true);
       
       // Fetch all data in parallel
-      const [availableOrdersData, assignedOrdersData, profileData, earningsData] = await Promise.all([
+      const [availableOrdersData, assignedOrdersData, profileData, earningsData, sessionData, statisticsData] = await Promise.all([
         apiService.getDelivererAvailableOrders(),
         apiService.getDelivererOrders(),
         apiService.getDelivererProfile(),
-        apiService.getDelivererEarnings()
+        apiService.getDelivererEarnings(),
+        // session info (may return { active: boolean, startedAt: string })
+        // this method name follows the review comment
+        (apiService as any).getDelivererSession ? (apiService as any).getDelivererSession() : Promise.resolve({ active: false, startedAt: null }),
+        apiService.getDelivererStatistics()
       ]);
 
-      setAvailableOrders(availableOrdersData.orders);
-      setAssignedOrders(assignedOrdersData.orders);
-      setDelivererProfile(profileData.profile);
-      setEarnings(earningsData.earnings);
+      // Map and defensive reads in case backend returns differently
+      setAvailableOrders((availableOrdersData && (availableOrdersData.orders || availableOrdersData)) || []);
+      setAssignedOrders((assignedOrdersData && (assignedOrdersData.orders || assignedOrdersData)) || []);
+      setDelivererProfile(profileData && (profileData.profile || profileData));
+      setEarnings(earningsData && (earningsData.earnings || earningsData));
+      setStatistics(statisticsData && (statisticsData.statistics || statisticsData));
+
+      if (sessionData) {
+        setIsSessionActive(Boolean(sessionData.active));
+        setSessionStartTime(sessionData.startedAt || sessionData.sessionStartedAt || null);
+      } else {
+        setIsSessionActive(false);
+        setSessionStartTime(null);
+      }
     } catch (error) {
       console.error('Error fetching deliverer data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleStartSession = async () => {
+    try {
+      if ((apiService as any).startDelivererSession) {
+        await (apiService as any).startDelivererSession();
+      } else if ((apiService as any).startSession) {
+        await (apiService as any).startSession();
+      } else {
+        console.warn('No API method found to start session');
+      }
+      await fetchDelivererData();
+    } catch (error) {
+      console.error('Error starting session:', error);
+    }
+  };
+
+  const handleEndSession = async () => {
+    try {
+      if ((apiService as any).endDelivererSession) {
+        await (apiService as any).endDelivererSession();
+      } else if ((apiService as any).endSession) {
+        await (apiService as any).endSession();
+      } else {
+        console.warn('No API method found to end session');
+      }
+      // After ending session, just clear session state locally
+      // Don't refetch protected endpoints as session is now inactive
+      setIsSessionActive(false);
+      setSessionStartTime(null);
+      setAvailableOrders([]);
+      setAssignedOrders([]);
+    } catch (error) {
+      console.error('Error ending session:', error);
+    }
+  };
+
+  const getOrderSolde = (order: DelivererOrder) => {
+    const t = (order.orderType || (order as any).type || '').toString();
+    if (t === 'A1' && typeof order.soldeSimple === 'number') return `${order.soldeSimple} DT`;
+    if (t === 'A2' && typeof order.soldeDual === 'number') return `${order.soldeDual} DT`;
+    if (t === 'A3' && typeof order.soldeTriple === 'number') return `${order.soldeTriple} DT`;
+    // fallback to generic solde
+    return typeof order.solde === 'number' ? `${order.solde} DT` : String(order.solde || '');
+  };
+
+  const formatDuration = (iso?: string | null) => {
+    if (!iso) return '';
+    const start = new Date(iso).getTime();
+    const now = Date.now();
+    const diff = Math.max(0, now - start);
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(mins / 60);
+    const minutes = mins % 60;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
   };
 
   const handleAcceptOrder = async (orderId: string) => {
@@ -133,6 +232,52 @@ export default function DelivererInterface() {
       }
     } catch (error) {
       console.error('Error updating order status:', error);
+    }
+  };
+
+  const handleOpenCollectionModal = (order: DelivererOrder) => {
+    setSelectedOrderForCollection(order);
+    // Initialize payment modes for each provider
+    const initialModes: { [key: string]: 'especes' | 'facture' } = {};
+    if (order.isGrouped && order.groupedOrders && order.groupedOrders.length > 0) {
+      order.groupedOrders.forEach((grouped: any, idx: number) => {
+        initialModes[`order_${idx}`] = 'especes';
+      });
+    } else {
+      initialModes['main'] = 'especes';
+    }
+    setPaymentModes(initialModes);
+    setCollectionModalOpen(true);
+  };
+
+  const handleConfirmCollection = async () => {
+    if (!selectedOrderForCollection) return;
+
+    try {
+      let paymentModeData;
+      if (selectedOrderForCollection.isGrouped && selectedOrderForCollection.groupedOrders?.length) {
+        // For grouped orders, prepare array of {provider, mode}
+        paymentModeData = selectedOrderForCollection.groupedOrders.map((grouped: any, idx: number) => ({
+          provider: grouped.provider?.id || `provider_${idx}`,
+          mode: paymentModes[`order_${idx}`] || 'especes'
+        }));
+      } else {
+        // For single order, just use the payment mode
+        paymentModeData = paymentModes['main'] || 'especes';
+      }
+
+      const result = await apiService.updateOrderStatus(selectedOrderForCollection.id, 'collected', {
+        providerPaymentMode: paymentModeData
+      });
+
+      if (result.success) {
+        setCollectionModalOpen(false);
+        setSelectedOrderForCollection(null);
+        setPaymentModes({});
+        fetchDelivererData();
+      }
+    } catch (error) {
+      console.error('Error confirming collection:', error);
     }
   };
 
@@ -174,6 +319,15 @@ export default function DelivererInterface() {
               <p className="text-sm xs:text-base text-muted-foreground">
                 {delivererProfile ? `${delivererProfile.firstName} ${delivererProfile.lastName}` : 'Chargement...'}
               </p>
+
+              {/* Session status line */}
+              <div className="text-sm text-muted-foreground">
+                {isSessionActive ? (
+                  <span>Session active depuis {formatDuration(sessionStartTime)}</span>
+                ) : (
+                  <span>Session inactive</span>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -184,6 +338,17 @@ export default function DelivererInterface() {
                 <LogOut className="h-4 w-4" />
                 Se déconnecter
               </Button>
+
+              {/* Start/End session button */}
+              {isSessionActive ? (
+                <Button variant="destructive" onClick={handleEndSession}>
+                  Terminer la session
+                </Button>
+              ) : (
+                <Button variant="secondary" onClick={handleStartSession}>
+                  Démarrer la session
+                </Button>
+              )}
             </div>
           </div>
 
@@ -217,7 +382,77 @@ export default function DelivererInterface() {
 
           {/* Orders Tab */}
           {activeTab === 'orders' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              {/* Statistics Badges */}
+              {statistics && (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  {/* Badge #1: Amigos CASH */}
+                  <Card className="p-4">
+                    <div className="text-center space-y-2">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {statistics.amigosCashToday || 0} DT
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground">Amigos CASH</div>
+                    </div>
+                  </Card>
+
+                  {/* Badge #2: Vos CASH */}
+                  <Card className="p-4">
+                    <div className="text-center space-y-2">
+                      <div className="text-2xl font-bold text-green-600">
+                        {statistics.yourCashToday || 0} DT
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground">Vos CASH</div>
+                    </div>
+                  </Card>
+
+                  {/* Badge #3: Commandes réalisées */}
+                  <Card className="p-4">
+                    <div className="text-center space-y-2">
+                      <div className="text-2xl font-bold text-purple-600">
+                        {statistics.ordersCompletedToday || 0}
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground">Commandes réalisées</div>
+                    </div>
+                  </Card>
+
+                  {/* Badge #4: Commandes refusées */}
+                  <Card className="p-4">
+                    <div className="text-center space-y-2">
+                      <div className="text-2xl font-bold text-red-600">
+                        {statistics.ordersRejectedToday || 0}
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground">Commandes refusées</div>
+                    </div>
+                  </Card>
+
+                  {/* Badge #5: Solde annulation */}
+                  <Card className="p-4">
+                    <div className="text-center space-y-2">
+                      <div className="text-2xl font-bold text-orange-600">
+                        {statistics.cancellationSoldeToday || 0} DT
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground">Solde annulation</div>
+                    </div>
+                  </Card>
+
+                  {/* Badge #6: Total stats */}
+                  <Card className="p-4">
+                    <div className="text-center space-y-2">
+                      <div className="text-sm font-semibold text-muted-foreground">
+                        <div>{statistics.totalDelivered || 0}</div>
+                        <div className="text-xs text-muted-foreground">livrées</div>
+                      </div>
+                      <div className="text-sm font-semibold text-muted-foreground">
+                        <div>{statistics.totalCancelled || 0}</div>
+                        <div className="text-xs text-muted-foreground">annulées</div>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Available Orders */}
               <Card>
                 <CardHeader>
@@ -234,10 +469,15 @@ export default function DelivererInterface() {
                           <div className="flex items-center gap-3">
                             <Badge variant="secondary">{order.orderNumber}</Badge>
                             <Badge>{order.paymentMethod}</Badge>
+                            {order.orderType && (
+                              <Badge variant={order.orderType === 'A4' ? 'destructive' : 'default'}>
+                                {order.orderType}
+                              </Badge>
+                            )}
                           </div>
                           <div className="text-right">
                             <div className="font-semibold">{order.total} DT</div>
-                            <div className="text-xs text-muted-foreground">Solde: {order.solde}</div>
+                            <div className="text-xs text-muted-foreground">Solde: {getOrderSolde(order)}</div>
                           </div>
                         </div>
                         
@@ -271,6 +511,8 @@ export default function DelivererInterface() {
                           <Button
                             size="sm"
                             onClick={() => handleAcceptOrder(order.id)}
+                            disabled={!isSessionActive}
+                            title={!isSessionActive ? 'Démarrer la session pour accepter des commandes' : undefined}
                             className="flex-1"
                           >
                             Accepter
@@ -279,6 +521,7 @@ export default function DelivererInterface() {
                             size="sm"
                             variant="outline"
                             onClick={() => handleRejectOrder(order.id)}
+                            disabled={!isSessionActive}
                           >
                             Refuser
                           </Button>
@@ -308,13 +551,19 @@ export default function DelivererInterface() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <Badge variant="default">{order.orderNumber}</Badge>
+                            {order.orderType && (
+                              <Badge variant={order.orderType === 'A4' ? 'destructive' : 'default'}>
+                                {order.orderType}
+                              </Badge>
+                            )}
                             <Badge variant={order.status === 'delivered' ? 'default' : 'secondary'}>
                               {order.status}
                             </Badge>
                           </div>
                           <div className="text-right">
                             <div className="font-semibold">{order.total} DT</div>
-                            <div className="text-xs text-muted-foreground">Solde: {order.solde}</div>
+-                            <div className="text-xs text-muted-foreground">Solde: {order.solde}</div>
++                            <div className="text-xs text-muted-foreground">Solde: {getOrderSolde(order)}</div>
                           </div>
                         </div>
                         
@@ -347,10 +596,22 @@ export default function DelivererInterface() {
                         {order.status === 'accepted' && (
                           <Button
                             size="sm"
-                            onClick={() => handleUpdateStatus(order.id, 'in_delivery')}
+                            onClick={() => handleOpenCollectionModal(order)}
+                            disabled={!isSessionActive}
                             className="w-full"
                           >
-                            En cours de livraison
+                            Étape 1: Collecte (#11)
+                          </Button>
+                        )}
+
+                        {order.status === 'collected' && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleUpdateStatus(order.id, 'in_delivery')}
+                            disabled={!isSessionActive}
+                            className="w-full"
+                          >
+                            Étape 2: En livraison (#15)
                           </Button>
                         )}
                         
@@ -359,6 +620,7 @@ export default function DelivererInterface() {
                             <Button
                               size="sm"
                               onClick={() => handleUpdateStatus(order.id, 'delivered')}
+                              disabled={!isSessionActive}
                               className="flex-1"
                             >
                               Livrée
@@ -367,6 +629,7 @@ export default function DelivererInterface() {
                               size="sm"
                               variant="outline"
                               onClick={() => handleUpdateStatus(order.id, 'cancelled')}
+                              disabled={!isSessionActive}
                             >
                               Annulée
                             </Button>
@@ -381,12 +644,51 @@ export default function DelivererInterface() {
                   </div>
                 </CardContent>
               </Card>
+              </div>
             </div>
           )}
 
           {/* Profile Tab */}
           {activeTab === 'profile' && delivererProfile && (
-            <Card>
+            <div className="space-y-6">
+              {/* Today's Metrics Card */}
+              {statistics && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Métriques d'Aujourd'hui</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center space-y-2">
+                        <div className="text-lg font-bold text-blue-600">
+                          {statistics.amigosCashToday || 0} DT
+                        </div>
+                        <div className="text-xs font-medium text-muted-foreground">Amigos CASH</div>
+                      </div>
+                      <div className="text-center space-y-2">
+                        <div className="text-lg font-bold text-green-600">
+                          {statistics.yourCashToday || 0} DT
+                        </div>
+                        <div className="text-xs font-medium text-muted-foreground">Vos CASH</div>
+                      </div>
+                      <div className="text-center space-y-2">
+                        <div className="text-lg font-bold text-purple-600">
+                          {statistics.ordersCompletedToday || 0}
+                        </div>
+                        <div className="text-xs font-medium text-muted-foreground">Réalisées</div>
+                      </div>
+                      <div className="text-center space-y-2">
+                        <div className="text-lg font-bold text-red-600">
+                          {statistics.ordersRejectedToday || 0}
+                        </div>
+                        <div className="text-xs font-medium text-muted-foreground">Refusées</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card>
               <CardHeader>
                 <CardTitle>Profil Livreur</CardTitle>
               </CardHeader>
@@ -453,12 +755,55 @@ export default function DelivererInterface() {
                   </div>
                 </div>
               </CardContent>
-            </Card>
+              </Card>
+            </div>
           )}
 
           {/* Earnings Tab */}
           {activeTab === 'earnings' && earnings && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="space-y-6">
+              {/* Today's Statistics */}
+              {statistics && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Card className="p-4">
+                    <div className="text-center space-y-2">
+                      <div className="text-xl font-bold text-blue-600">
+                        {statistics.amigosCashToday || 0} DT
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground">Amigos CASH (Auj.)</div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-4">
+                    <div className="text-center space-y-2">
+                      <div className="text-xl font-bold text-green-600">
+                        {statistics.yourCashToday || 0} DT
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground">Vos CASH (Auj.)</div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-4">
+                    <div className="text-center space-y-2">
+                      <div className="text-xl font-bold text-purple-600">
+                        {statistics.ordersCompletedToday || 0}
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground">Réalisées (Auj.)</div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-4">
+                    <div className="text-center space-y-2">
+                      <div className="text-xl font-bold text-orange-600">
+                        {statistics.cancellationSoldeToday || 0} DT
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground">Solde annulation</div>
+                    </div>
+                  </Card>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle>Gains Globaux</CardTitle>
@@ -477,6 +822,12 @@ export default function DelivererInterface() {
                       <span className="text-muted-foreground">Commandes</span>
                       <span>{earnings.orderCount}</span>
                     </div>
+                    {earnings.dailySoldeAmigos !== undefined && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Solde Amigos (aujourd'hui)</span>
+                        <span className="font-semibold">{earnings.dailySoldeAmigos} DT</span>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -527,8 +878,96 @@ export default function DelivererInterface() {
                 </CardContent>
               </Card>
             </div>
+            </div>
           )}
         </div>
+
+        {/* Collection Modal */}
+        {collectionModalOpen && selectedOrderForCollection && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <Card className="w-full max-w-md max-h-96 overflow-y-auto">
+              <CardHeader>
+                <CardTitle>Collecte - {selectedOrderForCollection.orderNumber}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="font-semibold text-lg">Prestataire(s)</p>
+                  {selectedOrderForCollection.isGrouped && selectedOrderForCollection.groupedOrders?.length ? (
+                    <div className="space-y-3 mt-2">
+                      {selectedOrderForCollection.groupedOrders.map((grouped: any, idx: number) => (
+                        <div key={idx} className="border rounded p-3">
+                          <p className="font-medium">{grouped.provider?.name || 'Prestataire'}</p>
+                          <p className="text-sm text-muted-foreground">{grouped.provider?.address}</p>
+                          <div className="mt-3 flex gap-2">
+                            <Button
+                              size="sm"
+                              variant={paymentModes[`order_${idx}`] === 'especes' ? 'default' : 'outline'}
+                              onClick={() => setPaymentModes({...paymentModes, [`order_${idx}`]: 'especes'})}
+                            >
+                              Espèces
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={paymentModes[`order_${idx}`] === 'facture' ? 'default' : 'outline'}
+                              onClick={() => setPaymentModes({...paymentModes, [`order_${idx}`]: 'facture'})}
+                            >
+                              Facture
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="border rounded p-3 mt-2">
+                      <p className="font-medium">{selectedOrderForCollection.provider?.name}</p>
+                      <p className="text-sm text-muted-foreground">{selectedOrderForCollection.provider?.address}</p>
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          size="sm"
+                          variant={paymentModes['main'] === 'especes' ? 'default' : 'outline'}
+                          onClick={() => setPaymentModes({...paymentModes, 'main': 'especes'})}
+                        >
+                          Espèces
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={paymentModes['main'] === 'facture' ? 'default' : 'outline'}
+                          onClick={() => setPaymentModes({...paymentModes, 'main': 'facture'})}
+                        >
+                          Facture
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-muted p-3 rounded">
+                  <p className="text-sm font-medium">Montant total prestataire</p>
+                  <p className="text-lg font-bold">{selectedOrderForCollection.total} DT</p>
+                </div>
+
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setCollectionModalOpen(false);
+                      setSelectedOrderForCollection(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    onClick={handleConfirmCollection}
+                    className="flex-1"
+                  >
+                    Confirmer collecte
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

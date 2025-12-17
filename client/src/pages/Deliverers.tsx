@@ -29,6 +29,7 @@ interface Deliverer {
   rating: number;
   isActive: boolean;
   location: string;
+  inSession?: boolean;
 }
 
 interface DeliverersResponse {
@@ -51,6 +52,7 @@ export default function Deliverers() {
   const [deliverers, setDeliverers] = useState<Deliverer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showOnlyInSession, setShowOnlyInSession] = useState(false);
   const [delivererStates, setDelivererStates] = useState<
     Record<string, boolean>
   >({});
@@ -85,6 +87,18 @@ export default function Deliverers() {
         states[d.id] = d.isActive;
       });
       setDelivererStates(states);
+
+      // Enrich deliverers with session-active flag by querying sessions API
+      try {
+        const sessionsResp = await apiService.getDelivererSessions({ page: 1, limit: 500, active: true });
+        const activeDelivererIds = new Set(sessionsResp.sessions.map((s: any) => s.deliverer?.id || s.deliverer));
+
+        const enriched = response.deliverers.map((d) => ({ ...d, inSession: activeDelivererIds.has(d.id) }));
+        setDeliverers(enriched);
+      } catch (err) {
+        // If sessions lookup fails, fall back to original deliverers
+        setDeliverers(response.deliverers);
+      }
     } catch (error: any) {
       console.error("Error fetching deliverers:", error);
       toast({
@@ -100,6 +114,15 @@ export default function Deliverers() {
   useEffect(() => {
     fetchDeliverers(1);
   }, [searchQuery]);
+
+  // Derived filtered list combining search + session filter
+  const filteredDeliverers = deliverers.filter((d) => {
+    const matchesSearch = [d.name, d.phone, d.location].join(" ").toLowerCase().includes(searchQuery.toLowerCase());
+    if (showOnlyInSession) {
+      return matchesSearch && Boolean(d.inSession);
+    }
+    return matchesSearch;
+  });
 
   const handleToggleActive = async (id: string) => {
     const newState = !delivererStates[id];
@@ -218,9 +241,12 @@ export default function Deliverers() {
           <h1 className="text-2xl sm:text-3xl font-semibold">
             Gestion des livreurs
           </h1>
-          <p className="text-muted-foreground">
-            Gérez votre équipe de livraison
-          </p>
+          <p className="text-muted-foreground">Gérez votre équipe de livraison</p>
+        </div>
+        <div className="sm:ml-4">
+          <a href="/deliverer-sessions" className="text-sm text-primary underline">
+            Voir les sessions des livreurs
+          </a>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
@@ -388,11 +414,22 @@ export default function Deliverers() {
               data-testid="input-search-deliverers"
             />
           </div>
+          <div className="mt-3 flex items-center gap-4">
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={showOnlyInSession}
+                onChange={(e) => setShowOnlyInSession(e.target.checked)}
+              />
+              Afficher uniquement en session
+            </label>
+            <div className="text-sm text-muted-foreground">({filteredDeliverers.length} visibles)</div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {deliverers.length > 0 ? (
-              deliverers.map((deliverer) => (
+            {filteredDeliverers.length > 0 ? (
+              filteredDeliverers.map((deliverer) => (
                 <div
                   key={deliverer.id}
                   className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg border hover-elevate gap-4"
@@ -462,9 +499,14 @@ export default function Deliverers() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
-                      <span className="text-xs sm:text-sm text-muted-foreground">
-                        {delivererStates[deliverer.id] ? "Actif" : "Inactif"}
-                      </span>
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs sm:text-sm text-muted-foreground">
+                          {delivererStates[deliverer.id] ? "Compte actif" : "Compte inactif"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {deliverer.inSession ? "En session" : "Hors session"}
+                        </span>
+                      </div>
                       <Switch
                         checked={delivererStates[deliverer.id] || false}
                         onCheckedChange={() => handleToggleActive(deliverer.id)}

@@ -1360,15 +1360,15 @@ export default function Products() {
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div className="bg-muted/50 rounded p-2">
                           <span className="text-xs text-muted-foreground">Prix: </span>
-                          <span className="font-semibold">{product.price} DT</span>
+                          <span className="font-semibold">{Number(product.price).toFixed(3)} DT</span>
                         </div>
                         <div className="bg-muted/50 rounded p-2">
                           <span className="text-xs text-muted-foreground">Payout: </span>
-                          <span className="font-semibold">{product.p1} DT</span>
+                          <span className="font-semibold">{Number(product.p1).toFixed(3)} DT</span>
                         </div>
                         <div className="bg-muted/50 rounded p-2">
                           <span className="text-xs text-muted-foreground">Client: </span>
-                          <span className="font-semibold">{product.p2} DT</span>
+                          <span className="font-semibold">{Number(product.p2).toFixed(3)} DT</span>
                         </div>
                         <div className="bg-muted/50 rounded p-2">
                           <span className="text-xs text-muted-foreground">Stock: </span>
