@@ -218,7 +218,7 @@ export default function Login() {
               </TabsTrigger>
               <TabsTrigger value="provider">
                 <span className="flex items-center gap-2">
-                  🏪 Fournisseur
+                  🏪 Prestataire
                 </span>
               </TabsTrigger>
             </TabsList>
