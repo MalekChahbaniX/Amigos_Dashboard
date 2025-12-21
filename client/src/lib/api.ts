@@ -1,28 +1,33 @@
-// API Configuration
-// Use environment variables for API URL configuration
-// Production: HTTPS (from VITE_API_URL)
-// Development: HTTP localhost (from VITE_DEV_API_URL or fallback)
-// const getApiBaseUrl = (): string => {
-//   // In production (or when explicitly set), use VITE_API_URL
-//   const productionUrl = import.meta.env.VITE_API_URL;
-//   if (productionUrl) {
-//     return productionUrl;
-//   }
-
-//   // In development, use VITE_DEV_API_URL or fallback to localhost
-//   const devUrl = import.meta.env.VITE_DEV_API_URL;
-//   if (devUrl) {
-//     return devUrl;
-//   }
-
-//   // Fallback: Determine protocol based on current location
-//   const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
-//   return `${protocol}://192.168.1.104:5000/api`;
-// };
-
-// const API_BASE_URL = getApiBaseUrl();
-
 const API_BASE_URL ='https://amigosdelivery25.com/api';
+
+// Utility function to normalize image URLs - ensures they're absolute and HTTPS
+export const normalizeImageUrl = (url: string | undefined): string | undefined => {
+  if (!url) return undefined;
+  
+  // If already an absolute HTTPS URL, return as-is
+  if (url.startsWith('https://')) {
+    return url;
+  }
+  
+  // If it's a relative path, prepend the base domain
+  if (url.startsWith('/')) {
+    // In production, always use HTTPS domain
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+      return `https://amigosdelivery25.com${url}`;
+    }
+    // Fallback to current origin
+    return `${typeof window !== 'undefined' ? window.location.origin : 'https://amigosdelivery25.com'}${url}`;
+  }
+  
+  // If it's an HTTP URL, convert to HTTPS
+  if (url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  
+  // Default: assume it's relative and prepend domain
+  return `https://amigosdelivery25.com/${url}`;
+};
+
 interface LoginResponse {
   _id: string;
   firstName: string;
