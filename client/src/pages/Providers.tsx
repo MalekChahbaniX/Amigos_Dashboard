@@ -123,6 +123,7 @@ export default function Providers() {
     phone: '',
     address: '',
     email: '',
+    password: '', // Mot de passe (requis)
     description: '',
     image: '', // Couverture (URL)
     imageFile: undefined as File | undefined, // Couverture (Fichier)
@@ -134,11 +135,13 @@ export default function Providers() {
 
   // État édition
   const [editForm, setEditForm] = useState({
+    id: '', // Ajouter l'ID du prestataire en cours d'édition
     name: '',
     type: 'restaurant' as 'restaurant' | 'course' | 'pharmacy',
     phone: '',
     address: '',
     email: '',
+    password: '', // Mot de passe (optionnel)
     description: '',
     image: '', // Couverture (URL)
     imageFile: undefined as File | undefined, // Couverture (Fichier)
@@ -178,10 +181,19 @@ export default function Providers() {
   };
 
   const handleCreateProvider = async () => {
-    if (!createForm.name || !createForm.phone || !createForm.address) {
+    if (!createForm.name || !createForm.phone || !createForm.email || !createForm.address || !createForm.password) {
       toast({
         title: 'Erreur',
-        description: 'Veuillez remplir tous les champs obligatoires',
+        description: 'Veuillez remplir tous les champs obligatoires (nom, téléphone, email, adresse, mot de passe)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (createForm.password.length < 6) {
+      toast({
+        title: 'Erreur',
+        description: 'Le mot de passe doit contenir au moins 6 caractères',
         variant: 'destructive',
       });
       return;
@@ -196,6 +208,7 @@ export default function Providers() {
         phone: createForm.phone,
         address: createForm.address,
         email: createForm.email || undefined,
+        password: createForm.password, // Inclure le mot de passe
         description: createForm.description || undefined,
         location: {
           latitude: createForm.latitude,
@@ -250,6 +263,7 @@ export default function Providers() {
       phone: '',
       address: '',
       email: '',
+      password: '', // Réinitialiser le mot de passe
       description: '',
       image: '',
       imageFile: undefined,
@@ -279,14 +293,26 @@ export default function Providers() {
         console.error("Could not fetch full provider details", e);
     }
 
+    // DEBUG: Log l'ID du provider pour vérifier
+    console.log('🔍 DEBUG handleEditProvider - provider.id:', provider.id);
+    console.log('🔍 DEBUG handleEditProvider - currentProvider.id:', currentProvider.id);
+    console.log('🔍 DEBUG handleEditProvider - currentProvider._id:', (currentProvider as any)._id);
+    console.log('🔍 DEBUG handleEditProvider - currentProvider:', currentProvider);
+
     setSelectedProvider(currentProvider);
     
+    // Déterminer l'ID correct (vérifier id, _id, ou utiliser provider.id)
+    const providerId = currentProvider.id || (currentProvider as any)._id || provider.id;
+    console.log('🔍 DEBUG handleEditProvider - providerId final:', providerId);
+
     setEditForm({
+      id: providerId || '', // Utiliser le meilleur ID trouvé
       name: currentProvider.name,
       type: currentProvider.type as any,
       phone: currentProvider.phone,
       address: currentProvider.address,
       email: (currentProvider as any).email || '',
+      password: '', // Laisser vide par défaut (optionnel)
       description: (currentProvider as any).description || '',
       image: currentProvider.image || '',
       imageFile: undefined,
@@ -295,14 +321,33 @@ export default function Providers() {
       latitude: currentProvider.location?.latitude || 36.8065,
       longitude: currentProvider.location?.longitude || 10.1815,
     });
+    
     setIsEditDialogOpen(true);
   };
 
   const handleUpdateProvider = async () => {
-    if (!selectedProvider || !editForm.name || !editForm.phone || !editForm.address) {
+    // DEBUG: Log tous les champs pour vérifier
+    console.log('🔍 DEBUG handleUpdateProvider - editForm:', {
+      id: editForm.id,
+      name: editForm.name,
+      phone: editForm.phone,
+      address: editForm.address,
+    });
+
+    if (!editForm.id || !editForm.name || !editForm.phone || !editForm.address) {
       toast({
         title: 'Erreur',
-        description: 'Veuillez remplir tous les champs obligatoires',
+        description: `Veuillez remplir tous les champs obligatoires. ID: ${editForm.id ? '✓' : '✗'}, Nom: ${editForm.name ? '✓' : '✗'}, Tél: ${editForm.phone ? '✓' : '✗'}, Adresse: ${editForm.address ? '✓' : '✗'}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Valider le mot de passe si fourni
+    if (editForm.password && editForm.password.length < 6) {
+      toast({
+        title: 'Erreur',
+        description: 'Le mot de passe doit contenir au moins 6 caractères',
         variant: 'destructive',
       });
       return;
@@ -317,6 +362,7 @@ export default function Providers() {
         phone: editForm.phone,
         address: editForm.address,
         email: editForm.email || undefined,
+        ...(editForm.password && { password: editForm.password }), // Inclure le mot de passe seulement s'il est fourni
         description: editForm.description || undefined,
         location: {
             latitude: editForm.latitude,
@@ -343,7 +389,7 @@ export default function Providers() {
         providerData.profileImage = editForm.profileImage;
       }
 
-      const response = await apiService.updateProvider(selectedProvider.id, providerData);
+      const response = await apiService.updateProvider(editForm.id, providerData);
       
       toast({
         title: 'Succès',
@@ -439,8 +485,18 @@ export default function Providers() {
                   <Input id="phone" value={createForm.phone} onChange={(e) => setCreateForm((prev) => ({ ...prev, phone: e.target.value }))} placeholder="Ex: +216 71 123 456" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">Email *</Label>
                   <Input id="email" value={createForm.email} onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))} placeholder="contact@pizzahouse.tn" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="password">Mot de passe *</Label>
+                  <Input id="password" type="password" value={createForm.password} onChange={(e) => setCreateForm((prev) => ({ ...prev, password: e.target.value }))} placeholder="Min. 6 caractères" />
+                  {createForm.password && createForm.password.length < 6 && (
+                    <p className="text-xs text-red-500">Le mot de passe doit contenir au moins 6 caractères</p>
+                  )}
                 </div>
               </div>
 
@@ -708,6 +764,19 @@ export default function Providers() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Téléphone *</Label><Input value={editForm.phone} onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))} /></div>
               <div className="space-y-2"><Label>Email</Label><Input value={editForm.email} onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))} /></div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Mot de passe (optionnel)</Label>
+                <Input type="password" value={editForm.password} onChange={(e) => setEditForm(prev => ({ ...prev, password: e.target.value }))} placeholder="Min. 6 caractères pour modifier" />
+                {editForm.password && editForm.password.length < 6 && (
+                  <p className="text-xs text-red-500">Le mot de passe doit contenir au moins 6 caractères</p>
+                )}
+                {editForm.password && (
+                  <p className="text-xs text-blue-500">Laissez vide pour ne pas modifier le mot de passe</p>
+                )}
+              </div>
             </div>
 
             <div className="space-y-2"><Label>Adresse *</Label><Input value={editForm.address} onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))} /></div>
