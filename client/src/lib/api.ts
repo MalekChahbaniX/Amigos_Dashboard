@@ -1,41 +1,15 @@
-// API Configuration
-// Use environment variables for API URL configuration
-// Production: HTTPS (from VITE_API_URL) - validated to be HTTPS
-// Development: HTTP localhost (from VITE_DEV_API_URL or fallback)
+
 const getApiBaseUrl = (): string => {
-  // Priority 1: Check if in development mode (not production)
-  const isProduction = import.meta.env.MODE === 'production' || import.meta.env.VITE_ENV === 'production';
-  
-  if (!isProduction) {
-    // In development, prefer VITE_DEV_API_URL
-    const devUrl = import.meta.env.VITE_DEV_API_URL;
-    if (devUrl) {
-      return devUrl;
-    }
+  const apiUrl = import.meta.env.VITE_API_URL;
+
+  if (!apiUrl) {
+    throw new Error('VITE_API_URL is not defined');
   }
 
-  // Priority 2: In production or if no dev URL, use VITE_API_URL with HTTPS validation
-  const productionUrl = import.meta.env.VITE_API_URL;
-  if (productionUrl) {
-    // Validate that production URL uses HTTPS
-    if (!productionUrl.startsWith('https://')) {
-      console.warn(
-        `[API] Production URL must use HTTPS. Got: ${productionUrl}. ` +
-        `Normalizing to HTTPS...`
-      );
-      // Normalize to HTTPS by replacing http:// with https://
-      const normalizedUrl = productionUrl.replace(/^http:\/\//, 'https://');
-      return normalizedUrl;
-    }
-    return productionUrl;
-  }
-
-  // Priority 3: Fallback - Determine protocol based on current location
-  const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
-  return `${protocol}://192.168.1.104:5000/api`;
+  return apiUrl;
 };
 
-const API_BASE_URL = getApiBaseUrl();
+export const API_BASE_URL = getApiBaseUrl();
 
 interface LoginResponse {
   _id: string;
