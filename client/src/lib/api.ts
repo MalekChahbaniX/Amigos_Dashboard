@@ -1,15 +1,32 @@
 
-const getApiBaseUrl = (): string => {
-  const apiUrl = process.env.VITE_API_URL;
+let cachedApiBaseUrl: string | null = null;
 
-  if (!apiUrl) {
-    throw new Error('VITE_API_URL is not defined');
+const getApiBaseUrl = (): string => {
+  // Return cached value if already resolved
+  if (cachedApiBaseUrl) {
+    return cachedApiBaseUrl;
   }
 
+  // Try VITE_API_URL (production or explicitly set)
+  const apiUrl = import.meta.env.VITE_API_URL;
+
+  if (!apiUrl) {
+    console.error('Environment variables:', import.meta.env);
+    throw new Error(
+      'VITE_API_URL is not defined. Please ensure your .env.production file contains VITE_API_URL. ' +
+      'Current environment: ' + import.meta.env.MODE
+    );
+  }
+
+  cachedApiBaseUrl = apiUrl;
   return apiUrl;
 };
 
-export const API_BASE_URL = getApiBaseUrl();
+// Get API base URL lazily (only when first needed)
+export const getApiUrl = (): string => getApiBaseUrl();
+
+// For backwards compatibility, use a getter
+export const API_BASE_URL: string = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 interface LoginResponse {
   _id: string;
@@ -63,7 +80,7 @@ class ApiService {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = `${getApiUrl()}${endpoint}`;
 
     const config: RequestInit = {
       headers: {
@@ -749,7 +766,7 @@ class ApiService {
     formData.append('image', file);
 
     const token = localStorage.getItem('authToken');
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = `${getApiUrl()}${endpoint}`;
 
     const config: RequestInit = {
       method: 'POST',
