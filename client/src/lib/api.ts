@@ -2,30 +2,42 @@ const API_BASE_URL ='https://amigosdelivery25.com/api';
 
 // Utility function to normalize image URLs - ensures they're absolute and HTTPS
 export const normalizeImageUrl = (url: string | undefined): string | undefined => {
-  if (!url) return undefined;
+  if (!url || url.trim() === '') return undefined;
   
-  // If already an absolute HTTPS URL, return as-is
-  if (url.startsWith('https://')) {
-    return url;
+  // Clean up the URL - remove any duplicate protocols
+  let cleanUrl = url.trim();
+  
+  // Fix double protocol concatenation (e.g., "https://domainehttps//path" -> "https://domain/path")
+  if (cleanUrl.includes('https://') && cleanUrl.lastIndexOf('https://') > 0) {
+    // Multiple https:// found, keep only the first one
+    const firstIndex = cleanUrl.indexOf('https://');
+    const afterFirst = cleanUrl.substring(firstIndex + 8); // Skip "https://"
+    cleanUrl = 'https://' + afterFirst.replace(/^https?\:?\/\//g, ''); // Remove any additional protocol
+  }
+  if (cleanUrl.includes('http://') && cleanUrl.lastIndexOf('http://') > 0) {
+    // Multiple http:// found, keep only the first one
+    const firstIndex = cleanUrl.indexOf('http://');
+    const afterFirst = cleanUrl.substring(firstIndex + 7); // Skip "http://"
+    cleanUrl = 'http://' + afterFirst.replace(/^https?\:?\/\//g, ''); // Remove any additional protocol
   }
   
-  // If it's a relative path, prepend the base domain
-  if (url.startsWith('/')) {
-    // In production, always use HTTPS domain
-    if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
-      return `https://amigosdelivery25.com${url}`;
-    }
-    // Fallback to current origin
-    return `${typeof window !== 'undefined' ? window.location.origin : 'https://amigosdelivery25.com'}${url}`;
+  // If already an absolute HTTPS URL, return as-is
+  if (cleanUrl.startsWith('https://')) {
+    return cleanUrl;
   }
   
   // If it's an HTTP URL, convert to HTTPS
-  if (url.startsWith('http://')) {
-    return url.replace('http://', 'https://');
+  if (cleanUrl.startsWith('http://')) {
+    return cleanUrl.replace(/^http:/, 'https:');
+  }
+  
+  // If it's a relative path, prepend the HTTPS domain
+  if (cleanUrl.startsWith('/')) {
+    return `https://amigosdelivery25.com${cleanUrl}`;
   }
   
   // Default: assume it's relative and prepend domain
-  return `https://amigosdelivery25.com/${url}`;
+  return `https://amigosdelivery25.com/${cleanUrl}`;
 };
 
 interface LoginResponse {
