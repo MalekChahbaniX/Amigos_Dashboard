@@ -1,33 +1,28 @@
+// API Configuration
+// Use environment variables for API URL configuration
+// Production: HTTPS (from VITE_API_URL)
+// Development: HTTP localhost (from VITE_DEV_API_URL or fallback)
+// const getApiBaseUrl = (): string => {
+//   // In production (or when explicitly set), use VITE_API_URL
+//   const productionUrl = import.meta.env.VITE_API_URL;
+//   if (productionUrl) {
+//     return productionUrl;
+//   }
 
-let cachedApiBaseUrl: string | null = null;
+//   // In development, use VITE_DEV_API_URL or fallback to localhost
+//   const devUrl = import.meta.env.VITE_DEV_API_URL;
+//   if (devUrl) {
+//     return devUrl;
+//   }
 
-const getApiBaseUrl = (): string => {
-  // Return cached value if already resolved
-  if (cachedApiBaseUrl) {
-    return cachedApiBaseUrl;
-  }
+//   // Fallback: Determine protocol based on current location
+//   const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
+//   return `${protocol}://192.168.1.104:5000/api`;
+// };
 
-  // Try VITE_API_URL (production or explicitly set)
-  const apiUrl = import.meta.env.VITE_API_URL;
+// const API_BASE_URL = getApiBaseUrl();
 
-  if (!apiUrl) {
-    console.error('Environment variables:', import.meta.env);
-    throw new Error(
-      'VITE_API_URL is not defined. Please ensure your .env.production file contains VITE_API_URL. ' +
-      'Current environment: ' + import.meta.env.MODE
-    );
-  }
-
-  cachedApiBaseUrl = apiUrl;
-  return apiUrl;
-};
-
-// Get API base URL lazily (only when first needed)
-export const getApiUrl = (): string => getApiBaseUrl();
-
-// For backwards compatibility, use a getter
-export const API_BASE_URL: string = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
+const API_BASE_URL ='https://amigosdelivery25.com/api';
 interface LoginResponse {
   _id: string;
   firstName: string;
@@ -80,7 +75,7 @@ class ApiService {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const url = `${getApiUrl()}${endpoint}`;
+    const url = `${API_BASE_URL}${endpoint}`;
 
     const config: RequestInit = {
       headers: {
@@ -766,7 +761,7 @@ class ApiService {
     formData.append('image', file);
 
     const token = localStorage.getItem('authToken');
-    const url = `${getApiUrl()}${endpoint}`;
+    const url = `${API_BASE_URL}${endpoint}`;
 
     const config: RequestInit = {
       method: 'POST',

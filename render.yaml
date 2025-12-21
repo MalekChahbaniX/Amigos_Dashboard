@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: amigos-dashboard
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: VITE_API_URL
+        value: https://amigosdelivery25.com/api
+      - key: NODE_ENV
+        value: production
