@@ -63,8 +63,10 @@ export default function Dashboard() {
         setStats(statsData);
         setRecentOrders(ordersData);
         setActiveDeliverers(deliverersData);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching dashboard data:', error);
+        // Don't show error if it's a permission issue - just leave data empty
+        // This happens when a regular admin doesn't have access to global stats
       } finally {
         setLoading(false);
       }
@@ -77,7 +79,11 @@ export default function Dashboard() {
     setIsLoggingOut(true);
 
     try {
-      await apiService.logoutSuperAdmin();
+      // Call the appropriate logout based on user role
+      if (currentUser.role === 'superAdmin') {
+        await apiService.logoutSuperAdmin();
+      }
+      // For other roles, just clear local storage
 
       // Clear local storage
       localStorage.removeItem('authToken');
@@ -133,7 +139,11 @@ export default function Dashboard() {
                     {currentUser.firstName} {currentUser.lastName}
                   </span>
                   <span className="text-xs text-muted-foreground truncate">
-                    Super Administrateur
+                    {currentUser.role === 'superAdmin' 
+                      ? 'Super Administrateur'
+                      : currentUser.role === 'admin'
+                      ? 'Administrateur'
+                      : 'Utilisateur'}
                   </span>
                 </div>
               </div>

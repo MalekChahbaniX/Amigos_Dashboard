@@ -20,6 +20,7 @@ import Providers from "@/pages/Providers";
 import Products from "@/pages/Products";
 import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
+import CreateAdmin from "@/pages/CreateAdmin";
 import { Zones } from "@/pages/Zones";
 import { Promotions } from "@/pages/Promotions";
 import { Configuration } from "@/pages/Configuration";
@@ -74,6 +75,11 @@ function Router() {
       <Route path="/deliverers">
         <DashboardLayout>
           <Deliverers />
+        </DashboardLayout>
+      </Route>
+      <Route path="/create-admin">
+        <DashboardLayout>
+          <CreateAdmin />
         </DashboardLayout>
       </Route>
       <Route path="/deliverer-sessions">

@@ -1,44 +1,6 @@
-const API_BASE_URL ='https://amigosdelivery25.com/api';
+//const API_BASE_URL ='https://amigosdelivery25.com/api';
+const API_BASE_URL ='http://192.168.1.104:5000/api';
 
-// Utility function to normalize image URLs - ensures they're absolute and HTTPS
-export const normalizeImageUrl = (url: string | undefined): string | undefined => {
-  if (!url || url.trim() === '') return undefined;
-  
-  // Clean up the URL - remove any duplicate protocols
-  let cleanUrl = url.trim();
-  
-  // Fix double protocol concatenation (e.g., "https://domainehttps//path" -> "https://domain/path")
-  if (cleanUrl.includes('https://') && cleanUrl.lastIndexOf('https://') > 0) {
-    // Multiple https:// found, keep only the first one
-    const firstIndex = cleanUrl.indexOf('https://');
-    const afterFirst = cleanUrl.substring(firstIndex + 8); // Skip "https://"
-    cleanUrl = 'https://' + afterFirst.replace(/^https?\:?\/\//g, ''); // Remove any additional protocol
-  }
-  if (cleanUrl.includes('http://') && cleanUrl.lastIndexOf('http://') > 0) {
-    // Multiple http:// found, keep only the first one
-    const firstIndex = cleanUrl.indexOf('http://');
-    const afterFirst = cleanUrl.substring(firstIndex + 7); // Skip "http://"
-    cleanUrl = 'http://' + afterFirst.replace(/^https?\:?\/\//g, ''); // Remove any additional protocol
-  }
-  
-  // If already an absolute HTTPS URL, return as-is
-  if (cleanUrl.startsWith('https://')) {
-    return cleanUrl;
-  }
-  
-  // If it's an HTTP URL, convert to HTTPS
-  if (cleanUrl.startsWith('http://')) {
-    return cleanUrl.replace(/^http:/, 'https:');
-  }
-  
-  // If it's a relative path, prepend the HTTPS domain
-  if (cleanUrl.startsWith('/')) {
-    return `https://amigosdelivery25.com${cleanUrl}`;
-  }
-  
-  // Default: assume it's relative and prepend domain
-  return `https://amigosdelivery25.com/${cleanUrl}`;
-};
 
 interface LoginResponse {
   _id: string;
@@ -114,9 +76,9 @@ class ApiService {
     try {
       const response = await fetch(url, config);
       
-      // Handle 401/403 - Clear auth data
-      if (response.status === 401 || response.status === 403) {
-        console.warn('Auth failed:', response.status);
+      // Handle 401 - Unauthorized, clear auth and redirect
+      if (response.status === 401) {
+        console.warn('Unauthorized (401):', response.status);
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
         // Redirect to login
@@ -152,6 +114,28 @@ class ApiService {
     return this.request<LoginResponse>('/auth/register-super-admin', {
       method: 'POST',
       body: JSON.stringify(userData),
+    });
+  }
+
+  // Register new admin by superAdmin
+  async registerAdmin(adminData: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    cityId: string;
+  }): Promise<LoginResponse> {
+    return this.request<LoginResponse>('/auth/register-admin', {
+      method: 'POST',
+      body: JSON.stringify(adminData),
+    });
+  }
+
+  // Login admin
+  async loginAdmin(credentials: LoginRequest): Promise<LoginResponse> {
+    return this.request<LoginResponse>('/auth/login-admin', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
     });
   }
 

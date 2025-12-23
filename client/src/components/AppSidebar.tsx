@@ -9,7 +9,8 @@ import {
   Settings,
   MapPin,
   Gift,
-  Sliders
+  Sliders,
+  UserPlus
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -89,6 +90,11 @@ const menuItems = [
 
 const secondaryItems = [
   {
+    title: "Créer un administrateur",
+    url: "/create-admin",
+    icon: UserPlus,
+  },
+  {
     title: "Analytiques",
     url: "/analytics",
     icon: BarChart3,
@@ -107,6 +113,18 @@ const secondaryItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
+  
+  // Get current user role
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const isSuperAdmin = currentUser.role === 'superAdmin';
+
+  // Filter secondary items - only show Create Admin to superAdmins
+  const visibleSecondaryItems = secondaryItems.filter(item => {
+    if (item.title === "Créer un administrateur") {
+      return isSuperAdmin;
+    }
+    return true;
+  });
 
   return (
     <Sidebar>
@@ -144,7 +162,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Autres</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {secondaryItems.map((item) => (
+              {visibleSecondaryItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={location === item.url}>
                     <Link href={item.url} data-testid={`link-${item.title.toLowerCase()}`}>
