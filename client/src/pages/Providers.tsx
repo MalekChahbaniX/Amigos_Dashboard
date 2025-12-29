@@ -70,7 +70,7 @@ const typeLabels = {
 interface Provider {
   id: string;
   name: string;
-  type: 'restaurant' | 'course' | 'pharmacy';
+  type: 'restaurant' | 'course' | 'pharmacy' | 'store';
   category: string;
   phone: string;
   address: string;
