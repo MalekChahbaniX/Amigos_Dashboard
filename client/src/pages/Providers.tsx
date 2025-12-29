@@ -474,6 +474,7 @@ export default function Providers() {
                       <SelectItem value="restaurant">Restaurant</SelectItem>
                       <SelectItem value="course">Supermarché</SelectItem>
                       <SelectItem value="pharmacy">Pharmacie</SelectItem>
+                      <SelectItem value="store">Store</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -597,6 +598,7 @@ export default function Providers() {
             <TabsTrigger value="restaurant">Restaurants</TabsTrigger>
             <TabsTrigger value="course">Supermarchés</TabsTrigger>
             <TabsTrigger value="pharmacy">Pharmacies</TabsTrigger>
+            <TabsTrigger value="store">Stores</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -756,7 +758,7 @@ export default function Providers() {
                   <Label>Type *</Label>
                   <Select value={editForm.type} onValueChange={(v: any) => setEditForm(prev => ({ ...prev, type: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="restaurant">Restaurant</SelectItem><SelectItem value="course">Supermarché</SelectItem><SelectItem value="pharmacy">Pharmacie</SelectItem></SelectContent>
+                    <SelectContent><SelectItem value="restaurant">Restaurant</SelectItem><SelectItem value="course">Supermarché</SelectItem><SelectItem value="pharmacy">Pharmacie</SelectItem><SelectItem value="store">Store</SelectItem></SelectContent>
                   </Select>
               </div>
             </div>

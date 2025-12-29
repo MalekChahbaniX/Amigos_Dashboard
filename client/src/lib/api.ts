@@ -483,7 +483,7 @@ class ApiService {
     providers: Array<{
       id: string;
       name: string;
-      type: "restaurant" | "course" | "pharmacy";
+      type: "restaurant" | "course" | "pharmacy" | "store";
       category: string;
       phone: string;
       address: string;
@@ -529,7 +529,7 @@ class ApiService {
 
   async createProvider(providerData: {
     name: string;
-    type: "restaurant" | "course" | "pharmacy";
+    type: "restaurant" | "course" | "pharmacy" | "store";
     phone: string;
     address: string;
     email?: string;
@@ -548,7 +548,7 @@ class ApiService {
     provider: {
       id: string;
       name: string;
-      type: "restaurant" | "course" | "pharmacy";
+      type: "restaurant" | "course" | "pharmacy" | "store";
       category: string;
       phone: string;
       address: string;
@@ -591,7 +591,7 @@ class ApiService {
 
   async updateProvider(id: string, providerData: {
     name: string;
-    type: "restaurant" | "course" | "pharmacy";
+    type: "restaurant" | "course" | "pharmacy" | "store";
     phone: string;
     address: string;
     email?: string;
@@ -610,7 +610,7 @@ class ApiService {
     provider: {
       id: string;
       name: string;
-      type: "restaurant" | "course" | "pharmacy";
+      type: "restaurant" | "course" | "pharmacy" | "store";
       category: string;
       phone: string;
       address: string;
@@ -804,11 +804,12 @@ class ApiService {
     providerId: string;
     image?: string;
     imageFile?: File;
-    sizes?: Array<{
+    variants?: Array<{
       name: string;
       price: number;
       stock?: number;
-      optionGroups?: string[];
+      csR?: number;
+      csC?: number;
     }>;
     options?: Array<{
       name: string;
@@ -823,6 +824,9 @@ class ApiService {
     csC?: number;
     deliveryCategory?: string;
     availability?: boolean;
+    unitType?: 'piece' | 'weight' | 'volume' | 'variable';
+    unit?: 'piece' | 'kg' | 'g' | 'L' | 'ml' | 'unit';
+    baseQuantity?: number;
   }): Promise<{
     message: string;
     product: {
@@ -835,11 +839,12 @@ class ApiService {
       status: "available" | "out_of_stock" | "discontinued";
       providerId?: string;
       image?: string;
-      sizes?: Array<{
+      variants?: Array<{
         name: string;
         price: number;
         stock?: number;
-        optionGroups?: string[];
+        csR?: number;
+        csC?: number;
       }>;
       options?: Array<{
         name: string;
@@ -854,6 +859,9 @@ class ApiService {
       csC?: number;
       deliveryCategory?: string;
       availability?: boolean;
+      unitType?: 'piece' | 'weight' | 'volume' | 'variable';
+      unit?: 'piece' | 'kg' | 'g' | 'L' | 'ml' | 'unit';
+      baseQuantity?: number;
     };
   }> {
     // If there's a file, upload it first
@@ -887,11 +895,12 @@ class ApiService {
     providerId?: string;
     image?: string;
     imageFile?: File;
-    sizes?: Array<{
+    variants?: Array<{
       name: string;
       price: number;
       stock?: number;
-      optionGroups?: string[];
+      csR?: number;
+      csC?: number;
     }>;
     options?: Array<{
       name: string;
@@ -906,6 +915,9 @@ class ApiService {
     csC?: number;
     deliveryCategory?: string;
     availability?: boolean;
+    unitType?: 'piece' | 'weight' | 'volume' | 'variable';
+    unit?: 'piece' | 'kg' | 'g' | 'L' | 'ml' | 'unit';
+    baseQuantity?: number;
   }): Promise<{
     message: string;
     product: {
@@ -917,11 +929,12 @@ class ApiService {
       stock: number;
       status: "available" | "out_of_stock" | "discontinued";
       image?: string;
-      sizes?: Array<{
+      variants?: Array<{
         name: string;
         price: number;
         stock?: number;
-        optionGroups?: string[];
+        csR?: number;
+        csC?: number;
       }>;
       options?: Array<{
         name: string;
@@ -936,6 +949,9 @@ class ApiService {
       csC?: number;
       deliveryCategory?: string;
       availability?: boolean;
+      unitType?: 'piece' | 'weight' | 'volume' | 'variable';
+      unit?: 'piece' | 'kg' | 'g' | 'L' | 'ml' | 'unit';
+      baseQuantity?: number;
     };
   }> {
     // If there's a file, upload it first

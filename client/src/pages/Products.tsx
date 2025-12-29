@@ -1,16 +1,16 @@
-import { useState, useEffect } from 'react';
-import { Search, Plus, ImageIcon, Pencil, Trash2, Upload } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useState, useEffect } from "react";
+import { Search, Plus, ImageIcon, Pencil, Trash2, Upload } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -18,11 +18,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
-import { apiService } from '@/lib/api';
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { apiService } from "@/lib/api";
 
 interface Product {
   id: string;
@@ -36,7 +36,7 @@ interface Product {
   csC: number;
   deliveryCategory: string;
   stock: number;
-  status: 'available' | 'out_of_stock' | 'discontinued';
+  status: "available" | "out_of_stock" | "discontinued";
   image?: string;
   options?: Array<{
     name: string;
@@ -48,12 +48,16 @@ interface Product {
       price?: number;
     }>;
   }>;
-  sizes?: Array<{
+  variants?: Array<{
     name: string;
+    quantity?: number;
+    unit?: string;
     price: number;
     stock?: number;
     p1?: number;
     p2?: number;
+    csR?: number;
+    csC?: number;
   }>;
   availability?: boolean;
 }
@@ -72,20 +76,25 @@ interface CreateProductForm {
   price: string;
   category: string;
   stock: string;
-  status: 'available' | 'out_of_stock' | 'discontinued';
+  status: "available" | "out_of_stock" | "discontinued";
   image: string;
   imageFile?: File;
-  imageType: 'url' | 'file';
+  imageType: "url" | "file";
   providerId?: string;
   csR?: number;
   csC?: number;
   deliveryCategory?: string;
   availability?: boolean;
-  hasSizes: boolean;
-  sizes: Array<{
+  unitType: "piece" | "weight" | "volume" | "variable";
+  unit: "piece" | "kg" | "g" | "L" | "ml" | "unit";
+  baseQuantity: string;
+  hasVariants: boolean;
+  variants: Array<{
     name: string;
     price: string;
     stock: string;
+    csR?: number;
+    csC?: number;
   }>;
 }
 
@@ -93,8 +102,8 @@ export default function Products() {
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -102,78 +111,118 @@ export default function Products() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editForm, setEditForm] = useState<CreateProductForm>({
-    name: '',
-    description: '',
-    price: '',
-    category: '',
-    stock: '',
-    status: 'available',
-    image: '',
+    name: "",
+    description: "",
+    price: "",
+    category: "",
+    stock: "",
+    status: "available",
+    image: "",
     imageFile: undefined,
-    imageType: 'url',
-    providerId: '',
+    imageType: "url",
+    providerId: "",
     csR: 5,
     csC: 0,
-    deliveryCategory: 'restaurant',
+    deliveryCategory: "restaurant",
     availability: true,
-    hasSizes: false,
-    sizes: [],
+    unitType: "piece",
+    unit: "piece",
+    baseQuantity: "1",
+    hasVariants: false,
+    variants: [],
   });
   const [createForm, setCreateForm] = useState<CreateProductForm>({
-    name: '',
-    description: '',
-    price: '',
-    category: '',
-    stock: '',
-    status: 'available',
-    image: '',
+    name: "",
+    description: "",
+    price: "",
+    category: "",
+    stock: "",
+    status: "available",
+    image: "",
     imageFile: undefined,
-    imageType: 'url',
-    providerId: '',
+    imageType: "url",
+    providerId: "",
     csR: 5,
     csC: 0,
-    deliveryCategory: 'restaurant',
+    deliveryCategory: "restaurant",
     availability: true,
-    hasSizes: false,
-    sizes: [],
+    unitType: "piece",
+    unit: "piece",
+    baseQuantity: "1",
+    hasVariants: false,
+    variants: [],
   });
 
   const [providers, setProviders] = useState<
     Array<{ id: string; name: string; type: string }>
   >([]);
-  const [selectedProviderId, setSelectedProviderId] = useState<string>('');
-  const [selectedEditProviderId, setSelectedEditProviderId] = useState<string>('');
+  const [selectedProviderId, setSelectedProviderId] = useState<string>("");
+  const [selectedEditProviderId, setSelectedEditProviderId] =
+    useState<string>("");
 
   const fetchProducts = async (page = 1) => {
     try {
       setLoading(true);
-      const response = await apiService.getProducts(
-        searchQuery || undefined,
-        categoryFilter !== 'all' ? categoryFilter : undefined,
+      console.log(
+        "🔍 Fetching products - Page:",
         page,
-        12,
+        "Search:",
+        searchQuery,
+        "Category:",
+        categoryFilter
       );
 
+      const response = await apiService.getProducts(
+        searchQuery || undefined,
+        categoryFilter !== "all" ? categoryFilter : undefined,
+        page,
+        12
+      );
+
+      console.log("📦 Raw response from backend:", response);
+      console.log("📊 Products count:", response.products.length);
+
       // Type assertion to handle the new fields
-      const typedProducts = response.products.map(p => ({
-        ...p,
-        p1: (p as any).p1 || 0,
-        p2: (p as any).p2 || 0,
-        csR: (p as any).csR || 0,
-        csC: (p as any).csC || 0,
-        deliveryCategory: (p as any).deliveryCategory || 'restaurant',
-        availability: (p as any).availability !== false,
-        sizes: (p as any).sizes || []
-      })) as Product[];
+      const typedProducts = response.products.map((p) => {
+        console.log(`✅ Processing product: ${p.name}`, {
+          id: p.id,
+          unitType: (p as any).unitType,
+          hasVariants: !!(p as any).variants && (p as any).variants.length > 0,
+          variantCount: (p as any).variants?.length || 0,
+          variants: (p as any).variants,
+          price: p.price,
+          csR: (p as any).csR,
+          csC: (p as any).csC,
+        });
+
+        return {
+          ...p,
+          p1: (p as any).p1 || 0,
+          p2: (p as any).p2 || 0,
+          csR: (p as any).csR || 0,
+          csC: (p as any).csC || 0,
+          deliveryCategory: (p as any).deliveryCategory || "restaurant",
+          availability: (p as any).availability !== false,
+          variants: (p as any).variants || [],
+        };
+      }) as Product[];
+
+      console.log("✨ Formatted products:", typedProducts);
       setProducts(typedProducts);
       setTotalPages(response.totalPages);
       setCurrentPage(response.page);
+      console.log(
+        "✅ Products loaded successfully - Total:",
+        response.total,
+        "Pages:",
+        response.totalPages
+      );
     } catch (error: any) {
-      console.error('Error fetching products:', error);
+      console.error("❌ Error fetching products:", error);
       toast({
-        title: 'Erreur',
-        description: 'Impossible de charger les produits',
-        variant: 'destructive',
+        title: "Erreur",
+        description: "Impossible de charger les produits",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -186,20 +235,20 @@ export default function Products() {
   }, [searchQuery, categoryFilter]);
 
   const handleDeleteProduct = async (productId: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) {
+    if (confirm("Êtes-vous sûr de vouloir supprimer ce produit ?")) {
       try {
         await apiService.deleteProduct(productId);
         toast({
-          title: 'Succès',
-          description: 'Produit supprimé avec succès',
+          title: "Succès",
+          description: "Produit supprimé avec succès",
         });
         fetchProducts(currentPage);
       } catch (error: any) {
-        console.error('Error deleting product:', error);
+        console.error("Error deleting product:", error);
         toast({
-          title: 'Erreur',
-          description: 'Impossible de supprimer le produit',
-          variant: 'destructive',
+          title: "Erreur",
+          description: "Impossible de supprimer le produit",
+          variant: "destructive",
         });
       }
     }
@@ -208,16 +257,16 @@ export default function Products() {
   const handleCreateProduct = async () => {
     if (!createForm.name || !createForm.price || !createForm.category) {
       toast({
-        title: 'Erreur',
-        description: 'Veuillez remplir tous les champs obligatoires',
-        variant: 'destructive',
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs obligatoires",
+        variant: "destructive",
       });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const response = await apiService.createProduct({
+      const productPayload = {
         name: createForm.name,
         description: createForm.description || undefined,
         price: parseFloat(createForm.price),
@@ -231,39 +280,52 @@ export default function Products() {
         csC: createForm.csC,
         deliveryCategory: createForm.deliveryCategory,
         availability: createForm.availability,
-        sizes: createForm.hasSizes ? createForm.sizes.map(size => ({
-          name: size.name,
-          price: parseFloat(size.price),
-          stock: parseInt(size.stock) || 0
-        })) : undefined,
-      });
+        unitType: createForm.unitType,
+        unit: createForm.unit,
+        baseQuantity: parseFloat(createForm.baseQuantity) || 1,
+        variants: createForm.hasVariants
+          ? createForm.variants.map((variant) => ({
+              name: variant.name,
+              price: parseFloat(variant.price),
+              stock: parseInt(variant.stock) || 0,
+              csR: variant.csR !== undefined ? variant.csR : createForm.csR,
+              csC: variant.csC !== undefined ? variant.csC : createForm.csC,
+            }))
+          : undefined,
+      };
+
+      console.log("📤 Creating product - Payload:", productPayload);
+
+      const response = await apiService.createProduct(productPayload);
+
+      console.log("✅ Product created successfully - Response:", response);
 
       toast({
-        title: 'Succès',
-        description: response.message || 'Produit créé avec succès',
+        title: "Succès",
+        description: response.message || "Produit créé avec succès",
       });
 
       setIsCreateDialogOpen(false);
       resetCreateForm();
       fetchProducts(1);
     } catch (error: any) {
-      console.error('Error creating product:', error);
-      
-      let errorMessage = 'Erreur lors de la création du produit';
+      console.error("❌ Error creating product:", error);
+
+      let errorMessage = "Erreur lors de la création du produit";
       if (error.message) {
-        if (error.message.includes('Prestataire non trouvé')) {
+        if (error.message.includes("Prestataire non trouvé")) {
           errorMessage = "Veuillez d'abord créer un prestataire";
-        } else if (error.message.includes('required')) {
-          errorMessage = 'Veuillez remplir tous les champs obligatoires';
+        } else if (error.message.includes("required")) {
+          errorMessage = "Veuillez remplir tous les champs obligatoires";
         } else {
           errorMessage = error.message;
         }
       }
 
       toast({
-        title: 'Erreur',
+        title: "Erreur",
         description: errorMessage,
-        variant: 'destructive',
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -272,24 +334,27 @@ export default function Products() {
 
   const resetCreateForm = () => {
     setCreateForm({
-      name: '',
-      description: '',
-      price: '',
-      category: '',
-      stock: '',
-      status: 'available',
-      image: '',
+      name: "",
+      description: "",
+      price: "",
+      category: "",
+      stock: "",
+      status: "available",
+      image: "",
       imageFile: undefined,
-      imageType: 'url',
-      providerId: '',
+      imageType: "url",
+      providerId: "",
       csR: 5,
       csC: 0,
-      deliveryCategory: 'restaurant',
+      deliveryCategory: "restaurant",
       availability: true,
-      hasSizes: false,
-      sizes: [],
+      unitType: "piece",
+      unit: "piece",
+      baseQuantity: "1",
+      hasVariants: false,
+      variants: [],
     });
-    setSelectedProviderId('');
+    setSelectedProviderId("");
   };
 
   const fetchProviders = async () => {
@@ -300,22 +365,22 @@ export default function Products() {
           id: p.id,
           name: p.name,
           type: p.type,
-        })),
+        }))
       );
     } catch (error) {
-      console.error('Error fetching providers:', error);
+      console.error("Error fetching providers:", error);
     }
   };
 
   const handleImageFileChange = (file: File, isEdit: boolean = false) => {
     if (isEdit) {
-      setEditForm(prev => ({
+      setEditForm((prev) => ({
         ...prev,
         imageFile: file,
         image: file.name,
       }));
     } else {
-      setCreateForm(prev => ({
+      setCreateForm((prev) => ({
         ...prev,
         imageFile: file,
         image: file.name,
@@ -323,51 +388,77 @@ export default function Products() {
     }
   };
 
-  const handleImageTypeChange = (type: 'url' | 'file', isEdit: boolean = false) => {
+  const handleImageTypeChange = (
+    type: "url" | "file",
+    isEdit: boolean = false
+  ) => {
     if (isEdit) {
-      setEditForm(prev => ({
+      setEditForm((prev) => ({
         ...prev,
         imageType: type,
-        image: '',
+        image: "",
         imageFile: undefined,
       }));
     } else {
-      setCreateForm(prev => ({
+      setCreateForm((prev) => ({
         ...prev,
         imageType: type,
-        image: '',
+        image: "",
         imageFile: undefined,
       }));
     }
   };
 
   const handleEditProduct = (product: Product) => {
+    console.log("✏️ Opening edit dialog for product:", product.name);
+    console.log("📋 Product data:", product);
+
     setEditingProduct(product);
+    const hasVariants = !!(product.variants && product.variants.length > 0);
+    const unitType = hasVariants
+      ? "variable"
+      : (product as any).unitType || "piece";
+
+    console.log("🔄 Edit form setup:", {
+      name: product.name,
+      hasVariants,
+      unitType,
+      variantCount: product.variants?.length || 0,
+      variants: product.variants,
+    });
+
     setEditForm({
       name: product.name,
-      description: '',
+      description: "",
       price: product.price.toString(),
       category: product.category,
       stock: product.stock.toString(),
       status: product.status,
-      image: product.image || '',
+      image: product.image || "",
       imageFile: undefined,
-      imageType: 'url',
-      providerId: '',
+      imageType: "url",
+      providerId: "",
       csR: product.csR,
       csC: product.csC,
       deliveryCategory: product.deliveryCategory,
       availability: product.availability,
-      hasSizes: !!(product.sizes && product.sizes.length > 0),
-      sizes: product.sizes ? product.sizes.map(size => ({
-        name: size.name,
-        price: size.price.toString(),
-        stock: size.stock?.toString() || '0'
-      })) : [],
+      unitType: unitType,
+      unit: (product as any).unit || "piece",
+      baseQuantity: (product as any).baseQuantity?.toString() || "1",
+      hasVariants: hasVariants,
+      variants: product.variants
+        ? product.variants.map((variant) => ({
+            name: variant.name,
+            price: variant.price.toString(),
+            stock: variant.stock?.toString() || "0",
+            csR: variant.csR,
+            csC: variant.csC,
+          }))
+        : [],
     });
     setIsEditDialogOpen(true);
-    const providerMatch = providers.find(p => p.name === product.provider);
-    setSelectedEditProviderId(providerMatch?.id || '');
+    const providerMatch = providers.find((p) => p.name === product.provider);
+    setSelectedEditProviderId(providerMatch?.id || "");
   };
 
   const handleUpdateProduct = async () => {
@@ -378,16 +469,16 @@ export default function Products() {
       !editForm.category
     ) {
       toast({
-        title: 'Erreur',
-        description: 'Veuillez remplir tous les champs obligatoires',
-        variant: 'destructive',
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs obligatoires",
+        variant: "destructive",
       });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await apiService.updateProduct(editingProduct.id, {
+      const updatePayload = {
         name: editForm.name,
         description: editForm.description || undefined,
         price: parseFloat(editForm.price),
@@ -401,28 +492,42 @@ export default function Products() {
         csC: editForm.csC,
         deliveryCategory: editForm.deliveryCategory,
         availability: editForm.availability,
-        sizes: editForm.hasSizes ? editForm.sizes.map(size => ({
-          name: size.name,
-          price: parseFloat(size.price),
-          stock: parseInt(size.stock) || 0
-        })) : undefined,
-      });
+        unitType: editForm.unitType,
+        unit: editForm.unit,
+        baseQuantity: parseFloat(editForm.baseQuantity) || 1,
+        variants: editForm.hasVariants
+          ? editForm.variants.map((variant) => ({
+              name: variant.name,
+              price: parseFloat(variant.price),
+              stock: parseInt(variant.stock) || 0,
+              csR: variant.csR !== undefined ? variant.csR : editForm.csR,
+              csC: variant.csC !== undefined ? variant.csC : editForm.csC,
+            }))
+          : undefined,
+      };
+
+      console.log("📤 Updating product ID:", editingProduct.id);
+      console.log("📋 Update payload:", updatePayload);
+
+      await apiService.updateProduct(editingProduct.id, updatePayload);
+
+      console.log("✅ Product updated successfully");
 
       toast({
-        title: 'Succès',
-        description: 'Produit mis à jour avec succès',
+        title: "Succès",
+        description: "Produit mis à jour avec succès",
       });
 
       setIsEditDialogOpen(false);
       setEditingProduct(null);
       fetchProducts(currentPage);
     } catch (error: any) {
-      console.error('Error updating product:', error);
+      console.error("❌ Error updating product:", error);
       toast({
-        title: 'Erreur',
+        title: "Erreur",
         description:
-          error.message || 'Erreur lors de la mise à jour du produit',
-        variant: 'destructive',
+          error.message || "Erreur lors de la mise à jour du produit",
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -431,9 +536,7 @@ export default function Products() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        Chargement...
-      </div>
+      <div className="flex items-center justify-center h-64">Chargement...</div>
     );
   }
 
@@ -466,8 +569,8 @@ export default function Products() {
                 <Input
                   id="name"
                   value={createForm.name}
-                  onChange={e =>
-                    setCreateForm(prev => ({ ...prev, name: e.target.value }))
+                  onChange={(e) =>
+                    setCreateForm((prev) => ({ ...prev, name: e.target.value }))
                   }
                   placeholder="Ex: Pizza Margherita"
                 />
@@ -477,8 +580,8 @@ export default function Products() {
                 <Textarea
                   id="description"
                   value={createForm.description}
-                  onChange={e =>
-                    setCreateForm(prev => ({
+                  onChange={(e) =>
+                    setCreateForm((prev) => ({
                       ...prev,
                       description: e.target.value,
                     }))
@@ -494,8 +597,8 @@ export default function Products() {
                     type="number"
                     step="0.01"
                     value={createForm.price}
-                    onChange={e =>
-                      setCreateForm(prev => ({
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({
                         ...prev,
                         price: e.target.value,
                       }))
@@ -509,14 +612,14 @@ export default function Products() {
                     id="stock"
                     type="number"
                     value={createForm.stock}
-                    onChange={e =>
-                      setCreateForm(prev => ({
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({
                         ...prev,
                         stock: e.target.value,
                       }))
                     }
                     placeholder="0"
-                    disabled={createForm.hasSizes}
+                    disabled={createForm.hasVariants}
                   />
                 </div>
               </div>
@@ -524,8 +627,8 @@ export default function Products() {
                 <Label htmlFor="category">Catégorie *</Label>
                 <Select
                   value={createForm.category}
-                  onValueChange={value =>
-                    setCreateForm(prev => ({ ...prev, category: value }))
+                  onValueChange={(value) =>
+                    setCreateForm((prev) => ({ ...prev, category: value }))
                   }
                 >
                   <SelectTrigger>
@@ -535,56 +638,148 @@ export default function Products() {
                     <SelectItem value="Restaurant">Restaurant</SelectItem>
                     <SelectItem value="Supermarché">Supermarché</SelectItem>
                     <SelectItem value="Pharmacie">Pharmacie</SelectItem>
+                    <SelectItem value="Store">Store</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
+              {/* Unit System */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="unitType">Type d'unité *</Label>
+                  <Select
+                    value={createForm.unitType}
+                    onValueChange={(value) =>
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        unitType: value as any,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="piece">Pièce</SelectItem>
+                      <SelectItem value="weight">Poids</SelectItem>
+                      <SelectItem value="volume">Volume</SelectItem>
+                      <SelectItem value="variable">Variantes</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="unit">Unité *</Label>
+                  <Select
+                    value={createForm.unit}
+                    onValueChange={(value) =>
+                      setCreateForm((prev) => ({ ...prev, unit: value as any }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="piece">Pièce</SelectItem>
+                      <SelectItem value="kg">Kilogramme (kg)</SelectItem>
+                      <SelectItem value="g">Gramme (g)</SelectItem>
+                      <SelectItem value="L">Litre (L)</SelectItem>
+                      <SelectItem value="ml">Millilitre (ml)</SelectItem>
+                      <SelectItem value="unit">Unité</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="baseQuantity">Quantité de base</Label>
+                <Input
+                  id="baseQuantity"
+                  type="number"
+                  step="0.01"
+                  value={createForm.baseQuantity}
+                  onChange={(e) =>
+                    setCreateForm((prev) => ({
+                      ...prev,
+                      baseQuantity: e.target.value,
+                    }))
+                  }
+                  placeholder="1"
+                  min="0"
+                />
+              </div>
+
               {/* Commission Settings */}
-              <div className="grid grid-rows-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="csR">Commission Restaurant (CsR) %</Label>
                   <Input
                     id="csR"
                     type="number"
-                    step="0.1"
-                    placeholder="Ex: 3.5"
-                    value={createForm.csR || ''}
-                    onChange={e =>
-                      setCreateForm(prev => ({ ...prev, csR: parseFloat(e.target.value) || 0 }))
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    value={createForm.csR ?? ""}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        csR: Number(e.target.value),
+                      }))
                     }
-                    min="0"
-                    max="100"
+                    placeholder="e.g. 5"
                   />
                 </div>
-  
-                {/* Size Management */}
+
                 <div className="grid gap-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="hasSizes"
-                      checked={createForm.hasSizes}
-                      onChange={(e) =>
-                        setCreateForm(prev => ({
-                          ...prev,
-                          hasSizes: e.target.checked,
-                          stock: e.target.checked ? '0' : prev.stock,
-                        }))
-                      }
-                    />
-                    <Label htmlFor="hasSizes">Ce produit a plusieurs tailles</Label>
-                  </div>
+                  <Label htmlFor="csC">Commission Client (CsC) %</Label>
+                  <Input
+                    id="csC"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    value={createForm.csC ?? ""}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        csC: Number(e.target.value),
+                      }))
+                    }
+                    placeholder="e.g. 0"
+                  />
                 </div>
-  
-                {!createForm.hasSizes && (
+              </div>
+
+              <div className="grid gap-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="hasVariants"
+                    checked={createForm.hasVariants}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        hasVariants: e.target.checked,
+                        stock: e.target.checked ? "0" : prev.stock,
+                      }))
+                    }
+                  />
+                  <Label htmlFor="hasVariants">
+                    Ce produit a plusieurs variantes
+                  </Label>
+                </div>
+              </div>
+
+              <div>
+                {!createForm.hasVariants && (
                   <div className="grid gap-2">
                     <Label htmlFor="stock">Stock</Label>
                     <Input
                       id="stock"
                       type="number"
                       value={createForm.stock}
-                      onChange={e =>
-                        setCreateForm(prev => ({
+                      onChange={(e) =>
+                        setCreateForm((prev) => ({
                           ...prev,
                           stock: e.target.value,
                         }))
@@ -593,130 +788,200 @@ export default function Products() {
                     />
                   </div>
                 )}
-  
-                {createForm.hasSizes && (
+
+                {createForm.hasVariants && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <Label>Tailles du produit</Label>
+                      <Label>Variantes du produit</Label>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         onClick={() =>
-                          setCreateForm(prev => ({
+                          setCreateForm((prev) => ({
                             ...prev,
-                            sizes: [
-                              ...prev.sizes,
-                              { name: '', price: '', stock: '0' },
+                            variants: [
+                              ...prev.variants,
+                              {
+                                name: "",
+                                price: "",
+                                stock: "0",
+                                csR: prev.csR,
+                                csC: prev.csC,
+                              },
                             ],
                           }))
                         }
                       >
-                        + Ajouter une taille
+                        + Ajouter une variante
                       </Button>
                     </div>
                     <div className="space-y-3">
-                      {createForm.sizes.map((size, index) => (
-                        <div key={index} className="grid grid-cols-3 gap-3 p-3 border rounded">
-                          <div className="grid gap-2">
-                            <Label htmlFor={`size-name-${index}`}>Nom de la taille</Label>
-                            <Input
-                              id={`size-name-${index}`}
-                              value={size.name}
-                              onChange={(e) =>
-                                setCreateForm(prev => ({
-                                  ...prev,
-                                  sizes: prev.sizes.map((s, i) =>
-                                    i === index ? { ...s, name: e.target.value } : s
-                                  ),
-                                }))
-                              }
-                              placeholder="Ex: S, M, L, XL"
-                            />
+                      {createForm.variants.map((variant, index) => (
+                        <div
+                          key={index}
+                          className="space-y-3 p-3 border rounded bg-slate-50"
+                        >
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="grid gap-2">
+                              <Label htmlFor={`variant-name-${index}`}>
+                                Nom de la variante
+                              </Label>
+                              <Input
+                                id={`variant-name-${index}`}
+                                value={variant.name}
+                                onChange={(e) =>
+                                  setCreateForm((prev) => ({
+                                    ...prev,
+                                    variants: prev.variants.map((v, i) =>
+                                      i === index
+                                        ? { ...v, name: e.target.value }
+                                        : v
+                                    ),
+                                  }))
+                                }
+                                placeholder="Ex: S, M, L, XL"
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor={`variant-price-${index}`}>
+                                Prix (DT)
+                              </Label>
+                              <Input
+                                id={`variant-price-${index}`}
+                                type="number"
+                                step="0.01"
+                                value={variant.price}
+                                onChange={(e) =>
+                                  setCreateForm((prev) => ({
+                                    ...prev,
+                                    variants: prev.variants.map((v, i) =>
+                                      i === index
+                                        ? { ...v, price: e.target.value }
+                                        : v
+                                    ),
+                                  }))
+                                }
+                                placeholder="0.00"
+                              />
+                            </div>
                           </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor={`size-price-${index}`}>Prix (DT)</Label>
-                            <Input
-                              id={`size-price-${index}`}
-                              type="number"
-                              step="0.01"
-                              value={size.price}
-                              onChange={(e) =>
-                                setCreateForm(prev => ({
-                                  ...prev,
-                                  sizes: prev.sizes.map((s, i) =>
-                                    i === index ? { ...s, price: e.target.value } : s
-                                  ),
-                                }))
-                              }
-                              placeholder="0.00"
-                            />
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="grid gap-2">
+                              <Label htmlFor={`variant-stock-${index}`}>
+                                Stock
+                              </Label>
+                              <Input
+                                id={`variant-stock-${index}`}
+                                type="number"
+                                value={variant.stock}
+                                onChange={(e) =>
+                                  setCreateForm((prev) => ({
+                                    ...prev,
+                                    variants: prev.variants.map((v, i) =>
+                                      i === index
+                                        ? { ...v, stock: e.target.value }
+                                        : v
+                                    ),
+                                  }))
+                                }
+                                placeholder="0"
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor={`variant-csR-${index}`}>
+                                Commission Restaurant %
+                              </Label>
+                              <Input
+                                id={`variant-csR-${index}`}
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={0.1}
+                                value={variant.csR ?? createForm.csR ?? ""}
+                                onChange={(e) =>
+                                  setCreateForm((prev) => ({
+                                    ...prev,
+                                    variants: prev.variants.map((v, i) =>
+                                      i === index
+                                        ? { ...v, csR: Number(e.target.value) }
+                                        : v
+                                    ),
+                                  }))
+                                }
+                                placeholder="e.g. 5"
+                              />
+                            </div>
                           </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor={`size-stock-${index}`}>Stock</Label>
-                            <Input
-                              id={`size-stock-${index}`}
-                              type="number"
-                              value={size.stock}
-                              onChange={(e) =>
-                                setCreateForm(prev => ({
-                                  ...prev,
-                                  sizes: prev.sizes.map((s, i) =>
-                                    i === index ? { ...s, stock: e.target.value } : s
-                                  ),
-                                }))
-                              }
-                              placeholder="0"
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive"
-                              onClick={() =>
-                                setCreateForm(prev => ({
-                                  ...prev,
-                                  sizes: prev.sizes.filter((_, i) => i !== index),
-                                }))
-                              }
-                            >
-                              Supprimer
-                            </Button>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="grid gap-2">
+                              <Label htmlFor={`variant-csC-${index}`}>
+                                Commission Client %
+                              </Label>
+                              <Input
+                                id={`variant-csC-${index}`}
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={0.1}
+                                value={variant.csC ?? createForm.csC ?? ""}
+                                onChange={(e) =>
+                                  setCreateForm((prev) => ({
+                                    ...prev,
+                                    variants: prev.variants.map((v, i) =>
+                                      i === index
+                                        ? { ...v, csC: Number(e.target.value) }
+                                        : v
+                                    ),
+                                  }))
+                                }
+                                placeholder="e.g. 0"
+                              />
+                            </div>
+
+                            <div className="flex items-end">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive w-full"
+                                onClick={() =>
+                                  setCreateForm((prev) => ({
+                                    ...prev,
+                                    variants: prev.variants.filter(
+                                      (_, i) => i !== index
+                                    ),
+                                  }))
+                                }
+                              >
+                                Supprimer
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ))}
-                      {createForm.sizes.length === 0 && (
+                      {createForm.variants.length === 0 && (
                         <p className="text-sm text-muted-foreground">
-                          Aucune taille ajoutée. Cliquez sur "Ajouter une taille" pour commencer.
+                          Aucune variante ajoutée. Cliquez sur "Ajouter une
+                          variante" pour commencer.
                         </p>
                       )}
                     </div>
                   </div>
                 )}
-  
-                <div className="grid gap-2">
-                  <Label htmlFor="csC">Commission Client (CsC) %</Label>
-                  <Input
-                    id="csC"
-                    type="number"
-                    step="0.1"
-                    placeholder="Ex: 2.5"
-                    value={createForm.csC || ''}
-                    onChange={e =>
-                      setCreateForm(prev => ({ ...prev, csC: parseFloat(e.target.value) || 0 }))
-                    }
-                    min="0"
-                    max="100"
-                  />
-                </div>
               </div>
 
               <div className="grid gap-2">
                 <Label htmlFor="deliveryCategory">Catégorie de Livraison</Label>
                 <Select
-                  value={createForm.deliveryCategory || 'restaurant'}
-                  onValueChange={value =>
-                    setCreateForm(prev => ({ ...prev, deliveryCategory: value }))
+                  value={createForm.deliveryCategory || "restaurant"}
+                  onValueChange={(value) =>
+                    setCreateForm((prev) => ({
+                      ...prev,
+                      deliveryCategory: value,
+                    }))
                   }
                 >
                   <SelectTrigger>
@@ -726,6 +991,7 @@ export default function Products() {
                     <SelectItem value="restaurant">Restaurant</SelectItem>
                     <SelectItem value="course">Course</SelectItem>
                     <SelectItem value="pharmacy">Pharmacie</SelectItem>
+                    <SelectItem value="store">Store</SelectItem>                   
                   </SelectContent>
                 </Select>
               </div>
@@ -737,8 +1003,11 @@ export default function Products() {
                     type="checkbox"
                     id="availability"
                     checked={createForm.availability !== false}
-                    onChange={e =>
-                      setCreateForm(prev => ({ ...prev, availability: e.target.checked }))
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        availability: e.target.checked,
+                      }))
                     }
                   />
                   <Label htmlFor="availability">Produit actif</Label>
@@ -754,7 +1023,7 @@ export default function Products() {
                     <SelectValue placeholder="Sélectionner un prestataire" />
                   </SelectTrigger>
                   <SelectContent>
-                    {providers.map(provider => (
+                    {providers.map((provider) => (
                       <SelectItem key={provider.id} value={provider.id}>
                         {provider.name} ({provider.type})
                       </SelectItem>
@@ -767,7 +1036,7 @@ export default function Products() {
                 <Select
                   value={createForm.status}
                   onValueChange={(value: any) =>
-                    setCreateForm(prev => ({ ...prev, status: value }))
+                    setCreateForm((prev) => ({ ...prev, status: value }))
                   }
                 >
                   <SelectTrigger>
@@ -790,8 +1059,8 @@ export default function Products() {
                       <input
                         type="radio"
                         id="url-type"
-                        checked={createForm.imageType === 'url'}
-                        onChange={() => handleImageTypeChange('url')}
+                        checked={createForm.imageType === "url"}
+                        onChange={() => handleImageTypeChange("url")}
                       />
                       <Label htmlFor="url-type">URL</Label>
                     </div>
@@ -799,31 +1068,34 @@ export default function Products() {
                       <input
                         type="radio"
                         id="file-type"
-                        checked={createForm.imageType === 'file'}
-                        onChange={() => handleImageTypeChange('file')}
+                        checked={createForm.imageType === "file"}
+                        onChange={() => handleImageTypeChange("file")}
                       />
                       <Label htmlFor="file-type">Fichier</Label>
                     </div>
                   </div>
 
-                  {createForm.imageType === 'url' && (
+                  {createForm.imageType === "url" && (
                     <Input
                       id="image"
                       value={createForm.image}
-                      onChange={e =>
-                        setCreateForm(prev => ({ ...prev, image: e.target.value }))
+                      onChange={(e) =>
+                        setCreateForm((prev) => ({
+                          ...prev,
+                          image: e.target.value,
+                        }))
                       }
                       placeholder="https://example.com/image.jpg"
                     />
                   )}
 
-                  {createForm.imageType === 'file' && (
+                  {createForm.imageType === "file" && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <Input
                           type="file"
                           accept="image/*"
-                          onChange={e => {
+                          onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) {
                               handleImageFileChange(file);
@@ -854,7 +1126,7 @@ export default function Products() {
                 Annuler
               </Button>
               <Button onClick={handleCreateProduct} disabled={isSubmitting}>
-                {isSubmitting ? 'Création...' : 'Créer le produit'}
+                {isSubmitting ? "Création..." : "Créer le produit"}
               </Button>
             </div>
           </DialogContent>
@@ -874,8 +1146,8 @@ export default function Products() {
                 <Input
                   id="edit-name"
                   value={editForm.name}
-                  onChange={e =>
-                    setEditForm(prev => ({ ...prev, name: e.target.value }))
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, name: e.target.value }))
                   }
                   placeholder="Ex: Pizza Margherita"
                 />
@@ -885,8 +1157,8 @@ export default function Products() {
                 <Textarea
                   id="edit-description"
                   value={editForm.description}
-                  onChange={e =>
-                    setEditForm(prev => ({
+                  onChange={(e) =>
+                    setEditForm((prev) => ({
                       ...prev,
                       description: e.target.value,
                     }))
@@ -902,8 +1174,11 @@ export default function Products() {
                     type="number"
                     step="0.01"
                     value={editForm.price}
-                    onChange={e =>
-                      setEditForm(prev => ({ ...prev, price: e.target.value }))
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        price: e.target.value,
+                      }))
                     }
                     placeholder="0.00"
                   />
@@ -914,11 +1189,14 @@ export default function Products() {
                     id="edit-stock"
                     type="number"
                     value={editForm.stock}
-                    onChange={e =>
-                      setEditForm(prev => ({ ...prev, stock: e.target.value }))
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        stock: e.target.value,
+                      }))
                     }
                     placeholder="0"
-                    disabled={editForm.hasSizes}
+                    disabled={editForm.hasVariants}
                   />
                 </div>
               </div>
@@ -926,8 +1204,8 @@ export default function Products() {
                 <Label htmlFor="edit-category">Catégorie *</Label>
                 <Select
                   value={editForm.category}
-                  onValueChange={value =>
-                    setEditForm(prev => ({ ...prev, category: value }))
+                  onValueChange={(value) =>
+                    setEditForm((prev) => ({ ...prev, category: value }))
                   }
                 >
                   <SelectTrigger>
@@ -937,185 +1215,394 @@ export default function Products() {
                     <SelectItem value="Restaurant">Restaurant</SelectItem>
                     <SelectItem value="Supermarché">Supermarché</SelectItem>
                     <SelectItem value="Pharmacie">Pharmacie</SelectItem>
+                    <SelectItem value="Store">Store</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Unit System */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-unitType">Type d'unité *</Label>
+                  <Select
+                    value={editForm.unitType}
+                    onValueChange={(value) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        unitType: value as any,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="piece">Pièce</SelectItem>
+                      <SelectItem value="weight">Poids</SelectItem>
+                      <SelectItem value="volume">Volume</SelectItem>
+                      <SelectItem value="variable">Variantes</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-unit">Unité *</Label>
+                  <Select
+                    value={editForm.unit}
+                    onValueChange={(value) =>
+                      setEditForm((prev) => ({ ...prev, unit: value as any }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="piece">Pièce</SelectItem>
+                      <SelectItem value="kg">Kilogramme (kg)</SelectItem>
+                      <SelectItem value="g">Gramme (g)</SelectItem>
+                      <SelectItem value="L">Litre (L)</SelectItem>
+                      <SelectItem value="ml">Millilitre (ml)</SelectItem>
+                      <SelectItem value="unit">Unité</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-baseQuantity">Quantité de base</Label>
+                <Input
+                  id="edit-baseQuantity"
+                  type="number"
+                  step="0.01"
+                  value={editForm.baseQuantity}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      baseQuantity: e.target.value,
+                    }))
+                  }
+                  placeholder="1"
+                  min="0"
+                />
               </div>
 
               {/* Commission Settings */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="edit-csR">Commission Restaurant (CsR) %</Label>
+                  <Label htmlFor="edit-csR">
+                    Commission Restaurant (CsR) %
+                  </Label>
                   <Input
                     id="edit-csR"
                     type="number"
-                    step="0.1"
-                    placeholder="Ex: 3.5"
-                    value={editForm.csR || ''}
-                    onChange={e =>
-                      setEditForm(prev => ({ ...prev, csR: parseFloat(e.target.value) || 0 }))
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    value={editForm.csR ?? ""}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        csR: Number(e.target.value),
+                      }))
                     }
-                    min="0"
-                    max="100"
+                    placeholder="e.g. 5"
                   />
                 </div>
-  
-                {/* Size Management for Edit */}
-                <div className="grid gap-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="edit-hasSizes"
-                      checked={editForm.hasSizes}
-                      onChange={(e) =>
-                        setEditForm(prev => ({
-                          ...prev,
-                          hasSizes: e.target.checked,
-                          stock: e.target.checked ? '0' : prev.stock,
-                        }))
-                      }
-                    />
-                    <Label htmlFor="edit-hasSizes">Ce produit a plusieurs tailles</Label>
-                  </div>
-                </div>
-  
-                {!editForm.hasSizes && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="edit-stock">Stock</Label>
-                    <Input
-                      id="edit-stock"
-                      type="number"
-                      value={editForm.stock}
-                      onChange={e =>
-                        setEditForm(prev => ({ ...prev, stock: e.target.value }))
-                      }
-                      placeholder="0"
-                    />
-                  </div>
-                )}
-  
-                {editForm.hasSizes && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label>Tailles du produit</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          setEditForm(prev => ({
-                            ...prev,
-                            sizes: [
-                              ...prev.sizes,
-                              { name: '', price: '', stock: '0' },
-                            ],
-                          }))
-                        }
-                      >
-                        + Ajouter une taille
-                      </Button>
-                    </div>
-                    <div className="space-y-3">
-                      {editForm.sizes.map((size, index) => (
-                        <div key={index} className="grid grid-cols-3 gap-3 p-3 border rounded">
-                          <div className="grid gap-2">
-                            <Label htmlFor={`edit-size-name-${index}`}>Nom de la taille</Label>
-                            <Input
-                              id={`edit-size-name-${index}`}
-                              value={size.name}
-                              onChange={(e) =>
-                                setEditForm(prev => ({
-                                  ...prev,
-                                  sizes: prev.sizes.map((s, i) =>
-                                    i === index ? { ...s, name: e.target.value } : s
-                                  ),
-                                }))
-                              }
-                              placeholder="Ex: S, M, L, XL"
-                            />
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor={`edit-size-price-${index}`}>Prix (DT)</Label>
-                            <Input
-                              id={`edit-size-price-${index}`}
-                              type="number"
-                              step="0.01"
-                              value={size.price}
-                              onChange={(e) =>
-                                setEditForm(prev => ({
-                                  ...prev,
-                                  sizes: prev.sizes.map((s, i) =>
-                                    i === index ? { ...s, price: e.target.value } : s
-                                  ),
-                                }))
-                              }
-                              placeholder="0.00"
-                            />
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor={`edit-size-stock-${index}`}>Stock</Label>
-                            <Input
-                              id={`edit-size-stock-${index}`}
-                              type="number"
-                              value={size.stock}
-                              onChange={(e) =>
-                                setEditForm(prev => ({
-                                  ...prev,
-                                  sizes: prev.sizes.map((s, i) =>
-                                    i === index ? { ...s, stock: e.target.value } : s
-                                  ),
-                                }))
-                              }
-                              placeholder="0"
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive"
-                              onClick={() =>
-                                setEditForm(prev => ({
-                                  ...prev,
-                                  sizes: prev.sizes.filter((_, i) => i !== index),
-                                }))
-                              }
-                            >
-                              Supprimer
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                      {editForm.sizes.length === 0 && (
-                        <p className="text-sm text-muted-foreground">
-                          Aucune taille ajoutée. Cliquez sur "Ajouter une taille" pour commencer.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-  
+
                 <div className="grid gap-2">
                   <Label htmlFor="edit-csC">Commission Client (CsC) %</Label>
                   <Input
                     id="edit-csC"
                     type="number"
-                    step="0.1"
-                    placeholder="Ex: 2.5"
-                    value={editForm.csC || ''}
-                    onChange={e =>
-                      setEditForm(prev => ({ ...prev, csC: parseFloat(e.target.value) || 0 }))
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    value={editForm.csC ?? ""}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        csC: Number(e.target.value),
+                      }))
                     }
-                    min="0"
-                    max="100"
+                    placeholder="e.g. 10"
                   />
                 </div>
               </div>
 
+              {/* Variant Management for Edit - Show immediately after commissions */}
+              <div className="border rounded-lg p-4 bg-blue-50/50 space-y-4">
+                <div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <input
+                      type="checkbox"
+                      id="edit-hasVariants"
+                      checked={editForm.hasVariants}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          hasVariants: e.target.checked,
+                          stock: e.target.checked ? "0" : prev.stock,
+                        }))
+                      }
+                      className="w-4 h-4 cursor-pointer"
+                    />
+                    <Label
+                      htmlFor="edit-hasVariants"
+                      className="text-base font-semibold cursor-pointer"
+                    >
+                      Ce produit a plusieurs variantes
+                    </Label>
+                  </div>
+                </div>
+
+                {!editForm.hasVariants && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-stock-single">Stock du produit</Label>
+                    <Input
+                      id="edit-stock-single"
+                      type="number"
+                      value={editForm.stock}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          stock: e.target.value,
+                        }))
+                      }
+                      placeholder="0"
+                    />
+                  </div>
+                )}
+
+                {editForm.hasVariants && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold">
+                        Variantes du produit
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setEditForm((prev) => ({
+                            ...prev,
+                            variants: [
+                              ...prev.variants,
+                              {
+                                name: "",
+                                price: "",
+                                stock: "0",
+                                csR: prev.csR,
+                                csC: prev.csC,
+                              },
+                            ],
+                          }))
+                        }
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Ajouter une variante
+                      </Button>
+                    </div>
+
+                    {editForm.variants.length > 0 ? (
+                      <div className="space-y-3">
+                        {editForm.variants.map((variant, index) => (
+                          <div
+                            key={index}
+                            className="space-y-3 p-4 border rounded bg-white"
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <h4 className="font-semibold text-sm">
+                                Variante {index + 1}
+                              </h4>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive"
+                                onClick={() =>
+                                  setEditForm((prev) => ({
+                                    ...prev,
+                                    variants: prev.variants.filter(
+                                      (_, i) => i !== index
+                                    ),
+                                  }))
+                                }
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Supprimer
+                              </Button>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="grid gap-2">
+                                <Label
+                                  htmlFor={`edit-variant-name-${index}`}
+                                  className="text-xs"
+                                >
+                                  Nom *
+                                </Label>
+                                <Input
+                                  id={`edit-variant-name-${index}`}
+                                  value={variant.name}
+                                  onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      variants: prev.variants.map((v, i) =>
+                                        i === index
+                                          ? { ...v, name: e.target.value }
+                                          : v
+                                      ),
+                                    }))
+                                  }
+                                  placeholder="S, M, L, XL..."
+                                  className="text-sm"
+                                />
+                              </div>
+                              <div className="grid gap-2">
+                                <Label
+                                  htmlFor={`edit-variant-price-${index}`}
+                                  className="text-xs"
+                                >
+                                  Prix (DT) *
+                                </Label>
+                                <Input
+                                  id={`edit-variant-price-${index}`}
+                                  type="number"
+                                  step="0.01"
+                                  value={variant.price}
+                                  onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      variants: prev.variants.map((v, i) =>
+                                        i === index
+                                          ? { ...v, price: e.target.value }
+                                          : v
+                                      ),
+                                    }))
+                                  }
+                                  placeholder="0.00"
+                                  className="text-sm"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="grid gap-2">
+                                <Label
+                                  htmlFor={`edit-variant-stock-${index}`}
+                                  className="text-xs"
+                                >
+                                  Stock
+                                </Label>
+                                <Input
+                                  id={`edit-variant-stock-${index}`}
+                                  type="number"
+                                  value={variant.stock}
+                                  onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      variants: prev.variants.map((v, i) =>
+                                        i === index
+                                          ? { ...v, stock: e.target.value }
+                                          : v
+                                      ),
+                                    }))
+                                  }
+                                  placeholder="0"
+                                  className="text-sm"
+                                />
+                              </div>
+                              <div className="grid gap-2">
+                                <Label
+                                  htmlFor={`edit-variant-csR-${index}`}
+                                  className="text-xs"
+                                >
+                                  CsR (%)
+                                </Label>
+                                <Input
+                                  id={`edit-variant-csR-${index}`}
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  step={0.1}
+                                  value={variant.csR ?? editForm.csR ?? ""}
+                                  onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      variants: prev.variants.map((v, i) =>
+                                        i === index
+                                          ? {
+                                              ...v,
+                                              csR: Number(e.target.value),
+                                            }
+                                          : v
+                                      ),
+                                    }))
+                                  }
+                                  placeholder="e.g. 5"
+                                  className="text-sm"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="grid gap-2">
+                                <Label
+                                  htmlFor={`edit-variant-csC-${index}`}
+                                  className="text-xs"
+                                >
+                                  CsC (%)
+                                </Label>
+                                <Input
+                                  id={`edit-variant-csC-${index}`}
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  step={0.1}
+                                  value={variant.csC ?? editForm.csC ?? ""}
+                                  onChange={(e) =>
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      variants: prev.variants.map((v, i) =>
+                                        i === index
+                                          ? {
+                                              ...v,
+                                              csC: Number(e.target.value),
+                                            }
+                                          : v
+                                      ),
+                                    }))
+                                  }
+                                  placeholder="e.g. 0"
+                                  className="text-sm"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">
+                        Aucune variante pour le moment. Cliquez sur "Ajouter une
+                        variante" pour commencer.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="grid gap-2">
-                <Label htmlFor="edit-deliveryCategory">Catégorie de Livraison</Label>
+                <Label htmlFor="edit-deliveryCategory">
+                  Catégorie de Livraison
+                </Label>
                 <Select
-                  value={editForm.deliveryCategory || 'restaurant'}
-                  onValueChange={value =>
-                    setEditForm(prev => ({ ...prev, deliveryCategory: value }))
+                  value={editForm.deliveryCategory || "restaurant"}
+                  onValueChange={(value) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      deliveryCategory: value,
+                    }))
                   }
                 >
                   <SelectTrigger>
@@ -1125,6 +1612,7 @@ export default function Products() {
                     <SelectItem value="restaurant">Restaurant</SelectItem>
                     <SelectItem value="course">Course</SelectItem>
                     <SelectItem value="pharmacy">Pharmacie</SelectItem>
+                    <SelectItem value="store">Store</SelectItem>    
                   </SelectContent>
                 </Select>
               </div>
@@ -1136,8 +1624,11 @@ export default function Products() {
                     type="checkbox"
                     id="edit-availability"
                     checked={editForm.availability !== false}
-                    onChange={e =>
-                      setEditForm(prev => ({ ...prev, availability: e.target.checked }))
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        availability: e.target.checked,
+                      }))
                     }
                   />
                   <Label htmlFor="edit-availability">Produit actif</Label>
@@ -1154,7 +1645,7 @@ export default function Products() {
                     <SelectValue placeholder="Sélectionner un prestataire" />
                   </SelectTrigger>
                   <SelectContent>
-                    {providers.map(provider => (
+                    {providers.map((provider) => (
                       <SelectItem key={provider.id} value={provider.id}>
                         {provider.name} ({provider.type})
                       </SelectItem>
@@ -1167,7 +1658,7 @@ export default function Products() {
                 <Select
                   value={editForm.status}
                   onValueChange={(value: any) =>
-                    setEditForm(prev => ({ ...prev, status: value }))
+                    setEditForm((prev) => ({ ...prev, status: value }))
                   }
                 >
                   <SelectTrigger>
@@ -1190,8 +1681,8 @@ export default function Products() {
                       <input
                         type="radio"
                         id="edit-url-type"
-                        checked={editForm.imageType === 'url'}
-                        onChange={() => handleImageTypeChange('url', true)}
+                        checked={editForm.imageType === "url"}
+                        onChange={() => handleImageTypeChange("url", true)}
                       />
                       <Label htmlFor="edit-url-type">URL</Label>
                     </div>
@@ -1199,31 +1690,34 @@ export default function Products() {
                       <input
                         type="radio"
                         id="edit-file-type"
-                        checked={editForm.imageType === 'file'}
-                        onChange={() => handleImageTypeChange('file', true)}
+                        checked={editForm.imageType === "file"}
+                        onChange={() => handleImageTypeChange("file", true)}
                       />
                       <Label htmlFor="edit-file-type">Fichier</Label>
                     </div>
                   </div>
 
-                  {editForm.imageType === 'url' && (
+                  {editForm.imageType === "url" && (
                     <Input
                       id="edit-image"
                       value={editForm.image}
-                      onChange={e =>
-                        setEditForm(prev => ({ ...prev, image: e.target.value }))
+                      onChange={(e) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          image: e.target.value,
+                        }))
                       }
                       placeholder="https://example.com/image.jpg"
                     />
                   )}
 
-                  {editForm.imageType === 'file' && (
+                  {editForm.imageType === "file" && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <Input
                           type="file"
                           accept="image/*"
-                          onChange={e => {
+                          onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) {
                               handleImageFileChange(file, true);
@@ -1254,7 +1748,7 @@ export default function Products() {
                 Annuler
               </Button>
               <Button onClick={handleUpdateProduct} disabled={isSubmitting}>
-                {isSubmitting ? 'Modification...' : 'Modifier le produit'}
+                {isSubmitting ? "Modification..." : "Modifier le produit"}
               </Button>
             </div>
           </DialogContent>
@@ -1269,7 +1763,7 @@ export default function Products() {
               <Input
                 placeholder="Rechercher un produit..."
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
                 data-testid="input-search-products"
               />
@@ -1293,7 +1787,7 @@ export default function Products() {
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {products.length > 0 ? (
-              products.map(product => (
+              products.map((product) => (
                 <Card
                   key={product.id}
                   className="overflow-hidden"
@@ -1305,21 +1799,21 @@ export default function Products() {
                         src={product.image}
                         alt={product.name}
                         className="h-full w-full object-cover"
-                        onError={e => {
+                        onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           const container = target.parentElement;
                           const fallback =
-                            container?.querySelector('.fallback-icon');
+                            container?.querySelector(".fallback-icon");
                           if (target && container && fallback) {
-                            target.style.display = 'none';
-                            (fallback as HTMLElement).style.display = 'flex';
+                            target.style.display = "none";
+                            (fallback as HTMLElement).style.display = "flex";
                           }
                         }}
                       />
                     ) : null}
                     <div
                       className={`fallback-icon h-12 w-12 text-muted-foreground ${
-                        product.image ? 'hidden' : 'flex'
+                        product.image ? "hidden" : "flex"
                       } items-center justify-center`}
                     >
                       <ImageIcon className="h-12 w-12" />
@@ -1335,15 +1829,15 @@ export default function Products() {
                           </p>
                           {product.options && product.options.length > 0 && (
                             <p className="text-xs text-muted-foreground mt-1">
-                              Options:{' '}
+                              Options:{" "}
                               {product.options
                                 .map(
-                                  opt =>
+                                  (opt) =>
                                     `${opt.name} (${
-                                      opt.required ? 'Requis' : 'Optionnel'
-                                    })`,
+                                      opt.required ? "Requis" : "Optionnel"
+                                    })`
                                 )
-                                .join(', ')}
+                                .join(", ")}
                             </p>
                           )}
                         </div>
@@ -1356,45 +1850,99 @@ export default function Products() {
                           </Badge>
                         </div>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div className="bg-muted/50 rounded p-2">
-                          <span className="text-xs text-muted-foreground">Prix: </span>
-                          <span className="font-semibold">{Number(product.price).toFixed(3)} DT</span>
+                          <span className="text-xs text-muted-foreground">
+                            Prix:{" "}
+                          </span>
+                          <span className="font-semibold">
+                            {Number(product.price).toFixed(3)} DT/{(product as any).unit || 'piece'}
+                          </span>
                         </div>
                         <div className="bg-muted/50 rounded p-2">
-                          <span className="text-xs text-muted-foreground">Payout: </span>
-                          <span className="font-semibold">{Number(product.p1).toFixed(3)} DT</span>
+                          <span className="text-xs text-muted-foreground">
+                            Payout:{" "}
+                          </span>
+                          <span className="font-semibold">
+                            {Number(product.p1).toFixed(3)} DT
+                          </span>
                         </div>
                         <div className="bg-muted/50 rounded p-2">
-                          <span className="text-xs text-muted-foreground">Client: </span>
-                          <span className="font-semibold">{Number(product.p2).toFixed(3)} DT</span>
+                          <span className="text-xs text-muted-foreground">
+                            Client:{" "}
+                          </span>
+                          <span className="font-semibold">
+                            {Number(product.p2).toFixed(3)} DT
+                          </span>
                         </div>
                         <div className="bg-muted/50 rounded p-2">
-                          <span className="text-xs text-muted-foreground">Stock: </span>
-                          <span className={product.stock === 0 ? 'text-destructive font-medium' : 'font-medium'}>
+                          <span className="text-xs text-muted-foreground">
+                            Stock:{" "}
+                          </span>
+                          <span
+                            className={
+                              product.stock === 0
+                                ? "text-destructive font-medium"
+                                : "font-medium"
+                            }
+                          >
                             {product.stock}
                           </span>
                         </div>
                       </div>
-                      
-                      {product.sizes && product.sizes.length > 0 && (
+
+                      {product.variants && product.variants.length > 0 && (
                         <div className="space-y-2">
-                          <span className="text-xs text-muted-foreground font-semibold">Tailles disponibles:</span>
-                          <div className="grid gap-2">
-                            {product.sizes.map((size, index) => (
-                              <div key={index} className="bg-muted/50 rounded p-2 flex justify-between items-center">
-                                <span className="text-sm">{size.name}</span>
-                                <div className="flex gap-4 text-sm">
-                                  <span className="font-semibold">{size.price} DT</span>
-                                  <span className="text-muted-foreground">Stock: {size.stock || 0}</span>
+                          <span className="text-xs text-muted-foreground font-semibold">
+                            Variantes disponibles:
+                          </span>
+                          <div className="space-y-2">
+                            {/* Header */}
+                            <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-muted-foreground bg-muted rounded px-2 py-1">
+                              <span>Variante</span>
+                              <span>Prix</span>
+                              <span className="text-center">Payout</span>
+                              <span className="text-center">Prix Client</span>
+                            </div>
+                            {/* Variant Rows */}
+                            {product.variants.map((variant, index) => {
+                              const csR = variant.csR ?? product.csR ?? 5;
+                              const csC = variant.csC ?? product.csC ?? 0;
+                              const price = Number(variant.price);
+                              const p1 =
+                                variant.p1 !== undefined
+                                  ? Number(variant.p1)
+                                  : price * (1 - csR / 100);
+                              const p2 =
+                                variant.p2 !== undefined
+                                  ? Number(variant.p2)
+                                  : price * (1 + csC / 100);
+
+                              return (
+                                <div
+                                  key={index}
+                                  className="grid grid-cols-4 gap-2 text-xs bg-muted/50 rounded px-2 py-2"
+                                >
+                                  <span className="font-medium">
+                                    {variant.name}
+                                  </span>
+                                  <span className="font-semibold">
+                                    {price.toFixed(2)} DT
+                                  </span>
+                                  <span className="text-center font-semibold text-blue-600">
+                                    {p1.toFixed(2)} DT
+                                  </span>
+                                  <span className="text-center font-semibold text-green-600">
+                                    {p2.toFixed(2)} DT
+                                  </span>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       )}
-                      
+
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div className="bg-muted/50 rounded p-2">
                           <span className="text-muted-foreground">CsR: </span>
@@ -1405,23 +1953,28 @@ export default function Products() {
                           <span className="font-semibold">{product.csC}%</span>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center justify-between pt-2">
                         <div className="flex items-center gap-2">
                           <Badge
                             variant="secondary"
                             className={
-                              product.status === 'available'
-                                ? 'bg-chart-2/10 text-chart-2'
-                                : 'bg-destructive/10 text-destructive'
+                              product.status === "available"
+                                ? "bg-chart-2/10 text-chart-2"
+                                : "bg-destructive/10 text-destructive"
                             }
                           >
-                            {product.status === 'available'
-                              ? 'Disponible'
-                              : 'Rupture'}
+                            {product.status === "available"
+                              ? "Disponible"
+                              : "Rupture"}
                           </Badge>
-                          <Badge variant={product.availability ? "secondary" : "destructive"} className="text-xs">
-                            {product.availability ? 'Actif' : 'Inactif'}
+                          <Badge
+                            variant={
+                              product.availability ? "secondary" : "destructive"
+                            }
+                            className="text-xs"
+                          >
+                            {product.availability ? "Actif" : "Inactif"}
                           </Badge>
                         </div>
                         <div className="flex gap-1">
@@ -1482,4 +2035,3 @@ export default function Products() {
     </div>
   );
 }
-

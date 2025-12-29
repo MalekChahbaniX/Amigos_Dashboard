@@ -47,10 +47,17 @@ interface Product {
    providerId?: string;
    optionGroups?: string[];
    availability?: boolean;
-   sizes?: Array<{
+   csR?: number;
+   csC?: number;
+   deliveryCategory?: string;
+   variants?: Array<{
     name: string;
+    quantity?: number;
+    unit?: string;
     price: number;
     stock?: number;
+    csR?: number;
+    csC?: number;
   }>;
  }
 
@@ -64,6 +71,8 @@ interface ProductSize {
   name: string;
   price: string;
   stock?: string;
+  csR?: string;
+  csC?: string;
 }
 
 interface FormDataType {
@@ -80,7 +89,10 @@ interface FormDataType {
   csR: string;
   csC: string;
   deliveryCategory: string;
-  sizes: ProductSize[];
+  unitType: 'piece' | 'weight' | 'volume' | 'variable';
+  unit: 'piece' | 'kg' | 'g' | 'L' | 'ml' | 'unit';
+  baseQuantity: string;
+  variants: ProductSize[];
 }
 
 const categories = [
@@ -120,7 +132,10 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     csR: '5',
     csC: '0',
     deliveryCategory: 'restaurant',
-    sizes: [],
+    unitType: 'piece',
+    unit: 'piece',
+    baseQuantity: '1',
+    variants: [],
   });
 
   useEffect(() => {
@@ -143,10 +158,15 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         csR: (product as any).csR?.toString() || '5',
         csC: (product as any).csC?.toString() || '0',
         deliveryCategory: (product as any).deliveryCategory || 'restaurant',
-        sizes: product.sizes?.map(s => ({
-          name: s.name,
-          price: s.price.toString(),
-          stock: s.stock?.toString() || '0'
+        unitType: (product as any).unitType || 'piece',
+        unit: (product as any).unit || 'piece',
+        baseQuantity: (product as any).baseQuantity?.toString() || '1',
+        variants: product.variants?.map(v => ({
+          name: v.name,
+          price: v.price.toString(),
+          stock: v.stock?.toString() || '0',
+          csR: (v as any).csR?.toString() || '5',
+          csC: (v as any).csC?.toString() || '0'
         })) || [],
       });
     }
@@ -155,21 +175,21 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   const addSize = () => {
     setFormData(prev => ({
       ...prev,
-      sizes: [...prev.sizes, { name: '', price: '0', stock: '0' }]
+      variants: [...prev.variants, { name: '', price: '0', stock: '0', csR: '5', csC: '0' }]
     }));
   };
 
   const removeSize = (index: number) => {
     setFormData(prev => ({
       ...prev,
-      sizes: prev.sizes.filter((_, i) => i !== index)
+      variants: prev.variants.filter((_, i) => i !== index)
     }));
   };
 
   const updateSize = (index: number, field: keyof ProductSize, value: string) => {
-    const newSizes = [...formData.sizes];
-    newSizes[index] = { ...newSizes[index], [field]: value };
-    setFormData(prev => ({ ...prev, sizes: newSizes }));
+    const newVariants = [...formData.variants];
+    newVariants[index] = { ...newVariants[index], [field]: value };
+    setFormData(prev => ({ ...prev, variants: newVariants }));
   };
 
   const fetchOptionGroups = async () => {
@@ -231,12 +251,14 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
     try {
       setLoading(true);
-      const formattedSizes = formData.sizes
-        .filter(s => s.name.trim() !== '')
-        .map(s => ({
-          name: s.name,
-          price: parseFloat(s.price) || 0,
-          stock: parseInt(s.stock || '0') || 0
+      const formattedVariants = formData.variants
+        .filter(v => v.name.trim() !== '')
+        .map(v => ({
+          name: v.name,
+          price: parseFloat(v.price) || 0,
+          stock: parseInt(v.stock || '0') || 0,
+          csR: parseInt(v.csR || '5') || 5,
+          csC: parseInt(v.csC || '0') || 0
         }));
 
       const productData = {
@@ -253,7 +275,10 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         csR: parseInt(formData.csR) || 0,
         csC: parseInt(formData.csC) || 0,
         deliveryCategory: formData.deliveryCategory,
-        sizes: formattedSizes,
+        unitType: formData.unitType,
+        unit: formData.unit,
+        baseQuantity: parseFloat(formData.baseQuantity) || 1,
+        variants: formattedVariants,
       };
 
       if (product) {
@@ -316,6 +341,68 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
+                  <Label htmlFor="unitType">Type d'unité *</Label>
+                  <Select
+                    value={formData.unitType}
+                    onValueChange={(value) => setFormData({ ...formData, unitType: value as any })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="piece">Pièce (unités fixes)</SelectItem>
+                      <SelectItem value="weight">Poids (kg, g)</SelectItem>
+                      <SelectItem value="volume">Volume (L, ml)</SelectItem>
+                      <SelectItem value="variable">Variantes</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Le type d'unité du produit
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="unit">Unité *</Label>
+                  <Select
+                    value={formData.unit}
+                    onValueChange={(value) => setFormData({ ...formData, unit: value as any })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="piece">Pièce</SelectItem>
+                      <SelectItem value="kg">Kilogramme (kg)</SelectItem>
+                      <SelectItem value="g">Gramme (g)</SelectItem>
+                      <SelectItem value="L">Litre (L)</SelectItem>
+                      <SelectItem value="ml">Millilitre (ml)</SelectItem>
+                      <SelectItem value="unit">Unité</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    L'unité de base du produit
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="baseQuantity">Quantité de base</Label>
+                <Input
+                  id="baseQuantity"
+                  type="number"
+                  step="0.01"
+                  placeholder="1"
+                  value={formData.baseQuantity}
+                  onChange={(e) => setFormData({ ...formData, baseQuantity: e.target.value })}
+                  min="0"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Ex: 1 pour 1 kg, 0.5 pour 500g, 0.25 pour 250ml
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
                   <Label htmlFor="price">Prix de base *</Label>
                   <Input
                     id="price"
@@ -328,7 +415,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                     required
                   />
                   <p className="text-xs text-muted-foreground">
-                    {formData.sizes.length > 0 ? 'Prix de référence (les tailles auront leurs propres prix)' : 'Prix du produit'}
+                    {formData.variants.length > 0 ? 'Prix de référence (les variantes auront leurs propres prix)' : 'Prix du produit'}
                   </p>
                 </div>
 
@@ -341,10 +428,10 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                     value={formData.stock}
                     onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
                     min="0"
-                    disabled={formData.sizes.length > 0}
+                    disabled={formData.variants.length > 0}
                   />
                   <p className="text-xs text-muted-foreground">
-                    {formData.sizes.length > 0 ? 'Géré par taille' : 'Stock total disponible'}
+                    {formData.variants.length > 0 ? 'Géré par variante' : 'Stock total disponible'}
                   </p>
                 </div>
               </div>
@@ -395,6 +482,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                     <SelectItem value="restaurant">Restaurant</SelectItem>
                     <SelectItem value="course">Course</SelectItem>
                     <SelectItem value="pharmacy">Pharmacie</SelectItem>
+                    <SelectItem value="store">Store</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -439,27 +527,27 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
             </CardContent>
           </Card>
 
-          {/* Sizes Section */}
+          {/* Variants Section */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base">Tailles / Variantes</CardTitle>
+                  <CardTitle className="text-base">Variantes</CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Optionnel - Pour les produits avec plusieurs tailles
+                    Optionnel - Pour les produits avec plusieurs variantes
                   </p>
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={addSize}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Ajouter une taille
+                  Ajouter une variante
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              {formData.sizes.length === 0 ? (
+              {formData.variants.length === 0 ? (
                 <div className="text-center py-8 border-2 border-dashed rounded-lg bg-muted/20">
                   <p className="text-sm text-muted-foreground">
-                    Aucune taille définie
+                    Aucune variante définie
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     Le prix de base sera utilisé pour ce produit
@@ -467,58 +555,99 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {formData.sizes.map((size, index) => (
+                  {formData.variants.map((variant, index) => (
                     <div
                       key={index}
-                      className="flex items-end gap-3 p-4 border-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                      className="space-y-3 p-4 border-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
                     >
-                      <div className="flex-1 space-y-1.5">
-                        <Label className="text-xs font-medium text-muted-foreground">
-                          Nom de la taille
-                        </Label>
-                        <Input
-                          value={size.name}
-                          onChange={(e) => updateSize(index, "name", e.target.value)}
-                          placeholder="Ex: S, M, L, XL"
-                          className="h-10"
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground">
+                            Nom de la variante
+                          </Label>
+                          <Input
+                            value={variant.name}
+                            onChange={(e) => updateSize(index, "name", e.target.value)}
+                            placeholder="Ex: S, M, L, XL"
+                            className="h-10"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground">
+                            Prix (TND)
+                          </Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={variant.price}
+                            onChange={(e) => updateSize(index, "price", e.target.value)}
+                            min="0"
+                            placeholder="0.00"
+                            className="h-10"
+                          />
+                        </div>
                       </div>
-                      <div className="w-32 space-y-1.5">
-                        <Label className="text-xs font-medium text-muted-foreground">
-                          Prix (TND)
-                        </Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={size.price}
-                          onChange={(e) => updateSize(index, "price", e.target.value)}
-                          min="0"
-                          placeholder="0.00"
-                          className="h-10"
-                        />
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground">
+                            Stock
+                          </Label>
+                          <Input
+                            type="number"
+                            value={variant.stock}
+                            onChange={(e) => updateSize(index, "stock", e.target.value)}
+                            min="0"
+                            placeholder="0"
+                            className="h-10"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground">
+                            CsR %
+                          </Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={variant.csR || '5'}
+                            onChange={(e) => updateSize(index, "csR", e.target.value)}
+                            min="0"
+                            max="100"
+                            placeholder="5"
+                            className="h-10"
+                          />
+                        </div>
                       </div>
-                      <div className="w-24 space-y-1.5">
-                        <Label className="text-xs font-medium text-muted-foreground">
-                          Stock
-                        </Label>
-                        <Input
-                          type="number"
-                          value={size.stock}
-                          onChange={(e) => updateSize(index, "stock", e.target.value)}
-                          min="0"
-                          placeholder="0"
-                          className="h-10"
-                        />
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground">
+                            CsC %
+                          </Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={variant.csC || '0'}
+                            onChange={(e) => updateSize(index, "csC", e.target.value)}
+                            min="0"
+                            max="100"
+                            placeholder="0"
+                            className="h-10"
+                          />
+                        </div>
+                        <div className="flex items-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive w-full"
+                            onClick={() => removeSize(index)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Supprimer
+                          </Button>
+                        </div>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-10 w-10 text-red-500 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => removeSize(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                     </div>
                   ))}
                 </div>
