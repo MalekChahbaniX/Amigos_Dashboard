@@ -14,10 +14,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiService } from "@/lib/api";
-import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Edit } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
 
 // Validation schema for admin creation
 const createAdminSchema = z.object({
@@ -32,13 +48,42 @@ const createAdminSchema = z.object({
   path: ["confirmPassword"],
 });
 
+// Validation schema for admin update
+const updateAdminSchema = z.object({
+  email: z.string().email("Email invalide"),
+  firstName: z.string().min(2, "Le prénom est requis"),
+  lastName: z.string().min(2, "Le nom est requis"),
+  cityId: z.string().min(1, "Veuillez sélectionner une ville"),
+  password: z.string().optional(),
+  confirmPassword: z.string().optional(),
+}).refine((data) => {
+  if (data.password || data.confirmPassword) {
+    return data.password === data.confirmPassword && (data.password?.length || 0) >= 6;
+  }
+  return true;
+}, {
+  message: "Les mots de passe ne correspondent pas ou sont trop courts",
+  path: ["confirmPassword"],
+});
+
 type CreateAdminFormData = z.infer<typeof createAdminSchema>;
+type UpdateAdminFormData = z.infer<typeof updateAdminSchema>;
 
 interface City {
   _id?: string;
   id?: string;
   name: string;
   isActive: boolean;
+}
+
+interface Admin {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  cityName: string;
+  cityId: string;
+  createdAt: string;
 }
 
 export default function CreateAdmin() {
@@ -49,6 +94,11 @@ export default function CreateAdmin() {
   const [loadingCities, setLoadingCities] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [admins, setAdmins] = useState<Admin[]>([]);
+  const [loadingAdmins, setLoadingAdmins] = useState(true);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const {
     register,
@@ -59,6 +109,10 @@ export default function CreateAdmin() {
     setValue,
   } = useForm<CreateAdminFormData>({
     resolver: zodResolver(createAdminSchema),
+  });
+
+  const updateForm = useForm<UpdateAdminFormData>({
+    resolver: zodResolver(updateAdminSchema),
   });
 
   // Fetch cities on mount
@@ -93,12 +147,72 @@ export default function CreateAdmin() {
     fetchCities();
   }, [toast]);
 
+  // Fetch admins on mount
+  useEffect(() => {
+    fetchAdmins();
+  }, []);
+
+  const fetchAdmins = async () => {
+    try {
+      setLoadingAdmins(true);
+      const response = await apiService.getAdmins();
+      setAdmins(response || []);
+    } catch (error: any) {
+      console.error("Error fetching admins:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger la liste des administrateurs",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingAdmins(false);
+    }
+  };
+
+  const handleEditAdmin = (admin: Admin) => {
+    setSelectedAdmin(admin);
+    updateForm.reset({
+      email: admin.email,
+      firstName: admin.firstName,
+      lastName: admin.lastName,
+      cityId: admin.cityId,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateAdmin = async (data: UpdateAdminFormData) => {
+    if (!selectedAdmin) return;
+
+    try {
+      setIsUpdating(true);
+      await apiService.updateAdmin(selectedAdmin.id, data);
+      
+      toast({
+        title: "Succès",
+        description: "Administrateur mis à jour avec succès",
+      });
+      
+      setIsEditDialogOpen(false);
+      updateForm.reset();
+      await fetchAdmins();
+    } catch (error: any) {
+      console.error("Error updating admin:", error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Erreur lors de la mise à jour de l'administrateur",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const onSubmit = async (data: CreateAdminFormData) => {
     try {
       setIsLoading(true);
 
       // Call the API to register admin
-      const response = await apiService.registerAdmin({
+      await apiService.registerAdmin({
         email: data.email,
         password: data.password,
         firstName: data.firstName,
@@ -113,11 +227,14 @@ export default function CreateAdmin() {
 
       // Reset form
       reset();
+      
+      // Refresh admins list
+      await fetchAdmins();
 
-      // Redirect after 2 seconds
+      // Clear success message after 3 seconds
       setTimeout(() => {
-        setLocation("/dashboard");
-      }, 2000);
+        setShowSuccess(false);
+      }, 3000);
 
       toast({
         title: "Succès",
@@ -152,7 +269,7 @@ export default function CreateAdmin() {
           </CardHeader>
           <CardContent>
             <p className="text-gray-600 mb-4">
-              Seul un superAdmin peut créer des administrateurs.
+              Seul un superAdmin peut gérer les administrateurs.
             </p>
             <Button
               onClick={() => setLocation("/dashboard")}
@@ -167,7 +284,71 @@ export default function CreateAdmin() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-6xl mx-auto space-y-8">
+      {/* Admin List Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Administrateurs existants</CardTitle>
+          <CardDescription>
+            Liste de tous les administrateurs du système
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingAdmins ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="w-5 h-5 animate-spin mr-2" />
+              Chargement des administrateurs...
+            </div>
+          ) : admins.length === 0 ? (
+            <div className="flex items-center justify-center p-8 text-gray-500">
+              <p>Aucun administrateur trouvé</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nom complet</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Ville</TableHead>
+                    <TableHead>Date de création</TableHead>
+                    <TableHead className="w-24">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {admins.map((admin) => (
+                    <TableRow key={admin.id}>
+                      <TableCell className="font-medium">
+                        {admin.firstName} {admin.lastName}
+                      </TableCell>
+                      <TableCell>{admin.email}</TableCell>
+                      <TableCell>{admin.cityName}</TableCell>
+                      <TableCell>
+                        {new Date(admin.createdAt).toLocaleDateString('fr-FR')}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditAdmin(admin)}
+                          className="gap-2"
+                        >
+                          <Edit className="w-4 h-4" />
+                          Modifier
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      {/* Create Admin Section */}
       <Card>
         <CardHeader>
           <CardTitle>Créer un nouvel administrateur</CardTitle>
@@ -340,6 +521,148 @@ export default function CreateAdmin() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Edit Admin Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Modifier l'administrateur</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={updateForm.handleSubmit(handleUpdateAdmin)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-firstName">Prénom</Label>
+              <Input
+                id="edit-firstName"
+                placeholder="Jean"
+                {...updateForm.register("firstName")}
+                disabled={isUpdating}
+              />
+              {updateForm.formState.errors.firstName && (
+                <p className="text-sm text-red-500">
+                  {updateForm.formState.errors.firstName.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-lastName">Nom</Label>
+              <Input
+                id="edit-lastName"
+                placeholder="Dupont"
+                {...updateForm.register("lastName")}
+                disabled={isUpdating}
+              />
+              {updateForm.formState.errors.lastName && (
+                <p className="text-sm text-red-500">
+                  {updateForm.formState.errors.lastName.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                placeholder="admin@example.com"
+                {...updateForm.register("email")}
+                disabled={isUpdating}
+              />
+              {updateForm.formState.errors.email && (
+                <p className="text-sm text-red-500">
+                  {updateForm.formState.errors.email.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-cityId">Ville</Label>
+              <Select
+                value={updateForm.watch("cityId") || ""}
+                onValueChange={(value) => {
+                  updateForm.setValue("cityId", value, { shouldValidate: true });
+                }}
+              >
+                <SelectTrigger id="edit-cityId" disabled={isUpdating || cities.length === 0}>
+                  <SelectValue placeholder="Sélectionner une ville" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cities.map((city) => {
+                    const cityId = city._id || city.id || "";
+                    return (
+                      <SelectItem 
+                        key={cityId} 
+                        value={cityId}
+                      >
+                        {city.name}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              {updateForm.formState.errors.cityId && (
+                <p className="text-sm text-red-500">
+                  {updateForm.formState.errors.cityId.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-password">Nouveau mot de passe (laisser vide pour ne pas modifier)</Label>
+              <Input
+                id="edit-password"
+                type="password"
+                placeholder="••••••••"
+                {...updateForm.register("password")}
+                disabled={isUpdating}
+              />
+              {updateForm.formState.errors.password && (
+                <p className="text-sm text-red-500">
+                  {updateForm.formState.errors.password.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-confirmPassword">Confirmer le mot de passe</Label>
+              <Input
+                id="edit-confirmPassword"
+                type="password"
+                placeholder="••••••••"
+                {...updateForm.register("confirmPassword")}
+                disabled={isUpdating}
+              />
+              {updateForm.formState.errors.confirmPassword && (
+                <p className="text-sm text-red-500">
+                  {updateForm.formState.errors.confirmPassword.message}
+                </p>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+                disabled={isUpdating}
+              >
+                Annuler
+              </Button>
+              <Button type="submit" disabled={isUpdating}>
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Mise à jour...
+                  </>
+                ) : (
+                  "Mettre à jour"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

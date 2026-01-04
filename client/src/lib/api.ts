@@ -139,6 +139,57 @@ class ApiService {
     });
   }
 
+  // Get all admins
+  async getAdmins(): Promise<Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    cityName: string;
+    cityId: string;
+    createdAt: string;
+  }>> {
+    const response = await this.request<{
+      message: string;
+      admins: Array<{
+        id: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+        cityName: string;
+        cityId: string;
+        createdAt: string;
+      }>;
+    }>('/auth/admins');
+    return response.admins;
+  }
+
+  // Update admin
+  async updateAdmin(
+    id: string,
+    data: {
+      email?: string;
+      firstName?: string;
+      lastName?: string;
+      cityId?: string;
+      password?: string;
+    }
+  ): Promise<{
+    message: string;
+    admin: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+      cityId: string;
+    };
+  }> {
+    return this.request('/auth/admins/' + id, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Dashboard API methods
   async getDashboardStats(): Promise<{
     todayOrders: number;
@@ -470,6 +521,32 @@ class ApiService {
     return this.request(`/deliverers/${id}/stats`);
   }
 
+  async getDelivererBalance(id: string, date?: string): Promise<{
+    deliverer: {
+      id: string;
+      name: string;
+      phone: string;
+    };
+    balance: {
+      cashIn: string;
+      cashOut: string;
+      netBalance: string;
+      totalOrders: number;
+      entries: Array<{
+        date: string;
+        soldeAmigos: number;
+        soldeAnnulation: number;
+        paid: boolean;
+        paidAt: string | null;
+        ordersCount: number;
+      }>;
+    };
+  }> {
+    const params = new URLSearchParams();
+    if (date) params.append('date', date);
+    return this.request(`/deliverers/${id}/balance?${params}`);
+  }
+
   async deleteDeliverer(id: string): Promise<{
     message: string;
   }> {
@@ -490,6 +567,13 @@ class ApiService {
       totalOrders: number;
       rating: number;
       status: "active" | "inactive";
+      paymentMethod?: "facture" | "espece";
+      workingHours?: Array<{
+        day: string;
+        isOpen: boolean;
+        openTime: string;
+        closeTime: string;
+      }>;
     }>;
   }> {
     const params = new URLSearchParams();
@@ -543,6 +627,13 @@ class ApiService {
       longitude: number;
       address?: string;
     };
+    paymentMethod?: "facture" | "espece";
+    workingHours?: Array<{
+      day: string;
+      isOpen: boolean;
+      openTime: string;
+      closeTime: string;
+    }>;
   }): Promise<{
     message: string;
     provider: {
@@ -557,6 +648,13 @@ class ApiService {
       status: "active" | "inactive";
       image?: string;
       profileImage?: string;
+      paymentMethod?: "facture" | "espece";
+      workingHours?: Array<{
+        day: string;
+        isOpen: boolean;
+        openTime: string;
+        closeTime: string;
+      }>;
     };
   }> {
     // If there's a file, upload it first
@@ -605,6 +703,13 @@ class ApiService {
       longitude: number;
       address?: string;
     };
+    paymentMethod?: "facture" | "espece";
+    workingHours?: Array<{
+      day: string;
+      isOpen: boolean;
+      openTime: string;
+      closeTime: string;
+    }>;
   }): Promise<{
     message: string;
     provider: {
@@ -621,6 +726,13 @@ class ApiService {
       status: "active" | "inactive";
       image?: string;
       profileImage?: string;
+      paymentMethod?: "facture" | "espece";
+      workingHours?: Array<{
+        day: string;
+        isOpen: boolean;
+        openTime: string;
+        closeTime: string;
+      }>;
     };
   }> {
     // If there's a file, upload it first

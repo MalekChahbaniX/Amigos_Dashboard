@@ -34,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { apiService } from '@/lib/api';
 
@@ -84,6 +85,13 @@ interface Provider {
     longitude: number;
     address?: string;
   };
+  paymentMethod?: 'facture' | 'espece';
+  workingHours?: Array<{
+    day: string;
+    isOpen: boolean;
+    openTime: string;
+    closeTime: string;
+  }>;
 }
 
 function LocationPicker({ position, onLocationSelect }: { position: [number, number] | null, onLocationSelect: (lat: number, lng: number) => void }) {
@@ -131,6 +139,16 @@ export default function Providers() {
     profileImageFile: undefined as File | undefined, // Profil (Fichier)
     latitude: 36.8065,
     longitude: 10.1815,
+    paymentMethod: 'espece' as 'facture' | 'espece',
+    workingHours: [
+      { day: 'lundi', isOpen: true, openTime: '09:00', closeTime: '22:00' },
+      { day: 'mardi', isOpen: true, openTime: '09:00', closeTime: '22:00' },
+      { day: 'mercredi', isOpen: true, openTime: '09:00', closeTime: '22:00' },
+      { day: 'jeudi', isOpen: true, openTime: '09:00', closeTime: '22:00' },
+      { day: 'vendredi', isOpen: false, openTime: '09:00', closeTime: '22:00' },
+      { day: 'samedi', isOpen: true, openTime: '09:00', closeTime: '22:00' },
+      { day: 'dimanche', isOpen: true, openTime: '09:00', closeTime: '22:00' }
+    ]
   });
 
   // État édition
@@ -149,6 +167,16 @@ export default function Providers() {
     profileImageFile: undefined as File | undefined, // Profil (Fichier)
     latitude: 36.8065,
     longitude: 10.1815,
+    paymentMethod: 'espece' as 'facture' | 'espece',
+    workingHours: [
+      { day: 'lundi', isOpen: true, openTime: '09:00', closeTime: '22:00' },
+      { day: 'mardi', isOpen: true, openTime: '09:00', closeTime: '22:00' },
+      { day: 'mercredi', isOpen: true, openTime: '09:00', closeTime: '22:00' },
+      { day: 'jeudi', isOpen: true, openTime: '09:00', closeTime: '22:00' },
+      { day: 'vendredi', isOpen: false, openTime: '09:00', closeTime: '22:00' },
+      { day: 'samedi', isOpen: true, openTime: '09:00', closeTime: '22:00' },
+      { day: 'dimanche', isOpen: true, openTime: '09:00', closeTime: '22:00' }
+    ]
   });
 
   useEffect(() => {
@@ -214,7 +242,9 @@ export default function Providers() {
           latitude: createForm.latitude,
           longitude: createForm.longitude,
           address: createForm.address
-        }
+        },
+        paymentMethod: createForm.paymentMethod,
+        workingHours: createForm.workingHours
       };
 
       // Gérer l'image de couverture : URL ou fichier
@@ -271,6 +301,16 @@ export default function Providers() {
       profileImageFile: undefined,
       latitude: 36.8065,
       longitude: 10.1815,
+      paymentMethod: 'espece',
+      workingHours: [
+        { day: 'lundi', isOpen: true, openTime: '08:00', closeTime: '20:00' },
+        { day: 'mardi', isOpen: true, openTime: '08:00', closeTime: '20:00' },
+        { day: 'mercredi', isOpen: true, openTime: '08:00', closeTime: '20:00' },
+        { day: 'jeudi', isOpen: true, openTime: '08:00', closeTime: '20:00' },
+        { day: 'vendredi', isOpen: false, openTime: '', closeTime: '' },
+        { day: 'samedi', isOpen: true, openTime: '08:00', closeTime: '20:00' },
+        { day: 'dimanche', isOpen: true, openTime: '08:00', closeTime: '20:00' },
+      ],
     });
   };
 
@@ -298,12 +338,29 @@ export default function Providers() {
     console.log('🔍 DEBUG handleEditProvider - currentProvider.id:', currentProvider.id);
     console.log('🔍 DEBUG handleEditProvider - currentProvider._id:', (currentProvider as any)._id);
     console.log('🔍 DEBUG handleEditProvider - currentProvider:', currentProvider);
+    console.log('🔍 DEBUG handleEditProvider - currentProvider.workingHours:', currentProvider.workingHours);
 
     setSelectedProvider(currentProvider);
     
     // Déterminer l'ID correct (vérifier id, _id, ou utiliser provider.id)
     const providerId = currentProvider.id || (currentProvider as any)._id || provider.id;
     console.log('🔍 DEBUG handleEditProvider - providerId final:', providerId);
+
+    // Horaires par défaut pour les prestataires sans horaires
+    const defaultWorkingHours = [
+      { day: 'lundi', isOpen: true, openTime: '09:00', closeTime: '22:00' },
+      { day: 'mardi', isOpen: true, openTime: '09:00', closeTime: '22:00' },
+      { day: 'mercredi', isOpen: true, openTime: '09:00', closeTime: '22:00' },
+      { day: 'jeudi', isOpen: true, openTime: '09:00', closeTime: '22:00' },
+      { day: 'vendredi', isOpen: false, openTime: '09:00', closeTime: '22:00' },
+      { day: 'samedi', isOpen: true, openTime: '09:00', closeTime: '22:00' },
+      { day: 'dimanche', isOpen: true, openTime: '09:00', closeTime: '22:00' }
+    ];
+
+    // Vérifier si currentProvider.workingHours existe et a des items
+    const workingHours = (currentProvider.workingHours && currentProvider.workingHours.length > 0) 
+      ? currentProvider.workingHours 
+      : defaultWorkingHours;
 
     setEditForm({
       id: providerId || '', // Utiliser le meilleur ID trouvé
@@ -320,6 +377,8 @@ export default function Providers() {
       profileImageFile: undefined,
       latitude: currentProvider.location?.latitude || 36.8065,
       longitude: currentProvider.location?.longitude || 10.1815,
+      paymentMethod: currentProvider.paymentMethod || 'espece',
+      workingHours: workingHours
     });
     
     setIsEditDialogOpen(true);
@@ -368,7 +427,9 @@ export default function Providers() {
             latitude: editForm.latitude,
             longitude: editForm.longitude,
             address: editForm.address
-        }
+        },
+        paymentMethod: editForm.paymentMethod,
+        workingHours: editForm.workingHours
       };
 
       // Gérer l'image de couverture : URL ou fichier
@@ -499,6 +560,23 @@ export default function Providers() {
                     <p className="text-xs text-red-500">Le mot de passe doit contenir au moins 6 caractères</p>
                   )}
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="paymentMethod">Méthode de règlement *</Label>
+                  <Select 
+                    value={createForm.paymentMethod} 
+                    onValueChange={(value: 'facture' | 'espece') => 
+                      setCreateForm((prev) => ({ ...prev, paymentMethod: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner une méthode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="espece">Espèce</SelectItem>
+                      <SelectItem value="facture">Facture</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -521,10 +599,68 @@ export default function Providers() {
                 <Textarea id="description" value={createForm.description} onChange={(e) => setCreateForm((prev) => ({ ...prev, description: e.target.value }))} placeholder="Description du prestataire..." className="resize-none" />
               </div>
 
+              <div className="space-y-2">
+                <Label className="text-base font-semibold">Horaires de travail</Label>
+                <p className="text-sm text-gray-500 mb-3">Configurez les horaires pour chaque jour de la semaine</p>
+                <div className="border rounded-lg p-4 space-y-4 bg-gray-50">
+                  {createForm.workingHours.map((schedule, index) => (
+                    <div key={schedule.day} className="bg-white p-3 rounded-md border">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="font-semibold capitalize text-gray-700">{schedule.day}</div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500 whitespace-nowrap">Ouvert</span>
+                            <Switch
+                              checked={schedule.isOpen}
+                              onCheckedChange={(checked) => {
+                                const newHours = [...createForm.workingHours];
+                                newHours[index].isOpen = checked;
+                                setCreateForm(prev => ({ ...prev, workingHours: newHours }));
+                              }}
+                            />
+                          </div>
+                          {schedule.isOpen ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="time"
+                                value={schedule.openTime}
+                                onChange={(e) => {
+                                  const newHours = [...createForm.workingHours];
+                                  newHours[index].openTime = e.target.value;
+                                  setCreateForm(prev => ({ ...prev, workingHours: newHours }));
+                                }}
+                                className="w-24 text-xs"
+                                title="Heure d'ouverture"
+                              />
+                              <span className="text-gray-400">à</span>
+                              <Input
+                                type="time"
+                                value={schedule.closeTime}
+                                onChange={(e) => {
+                                  const newHours = [...createForm.workingHours];
+                                  newHours[index].closeTime = e.target.value;
+                                  setCreateForm(prev => ({ ...prev, workingHours: newHours }));
+                                }}
+                                className="w-24 text-xs"
+                                title="Heure de fermeture"
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 italic text-sm">Fermé</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Gestion des Images (Cover + Profil) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-2"><ImageIcon className="w-4 h-4"/> Photo de couverture</Label>
+                    <Label className="flex items-center gap-2"><ImageIcon className="w-4 h-4"/>Photo de profil</Label>
                     <div className="space-y-2">
                       <Input
                           placeholder="https://example.com/cover.jpg"
@@ -550,7 +686,7 @@ export default function Providers() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-2"><UserCircle className="w-4 h-4"/> Photo de profil</Label>
+                    <Label className="flex items-center gap-2"><UserCircle className="w-4 h-4"/>Photo de couverture</Label>
                     <div className="space-y-2">
                       <Input
                           placeholder="https://example.com/logo.jpg"
@@ -624,7 +760,29 @@ export default function Providers() {
                       <ImageIcon className="w-12 h-12" />
                     </div>
                   )}
-                  <div className="absolute top-4 right-4">
+                  <div className="absolute top-4 right-4 flex items-center gap-2">
+                    <Switch
+                      checked={provider.status === 'active'}
+                      onCheckedChange={async (checked) => {
+                        try {
+                          await apiService.updateProviderStatus(
+                            provider.id,
+                            checked ? 'active' : 'inactive'
+                          );
+                          toast({
+                            title: 'Succès',
+                            description: `Prestataire ${checked ? 'activé' : 'désactivé'}`,
+                          });
+                          fetchProviders();
+                        } catch (error) {
+                          toast({
+                            title: 'Erreur',
+                            description: 'Impossible de modifier le statut',
+                            variant: 'destructive',
+                          });
+                        }
+                      }}
+                    />
                     <Badge className={`${provider.status === 'active' ? 'bg-green-500' : 'bg-gray-500'} text-white border-0 shadow-sm`}>
                       {provider.status === 'active' ? 'Actif' : 'Inactif'}
                     </Badge>
@@ -736,6 +894,35 @@ export default function Providers() {
                 <div className="space-y-1"><span className="text-xs text-gray-500 uppercase font-medium">Téléphone</span><p className="font-medium text-gray-900">{selectedProvider.phone}</p></div>
                 <div className="space-y-1"><span className="text-xs text-gray-500 uppercase font-medium">Adresse</span><p className="font-medium text-gray-900">{selectedProvider.address}</p></div>
               </div>
+
+              {selectedProvider.paymentMethod && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-gray-500">Méthode de règlement</Label>
+                    <p className="font-medium capitalize">{selectedProvider.paymentMethod}</p>
+                  </div>
+                </div>
+              )}
+
+              {selectedProvider.workingHours && selectedProvider.workingHours.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-gray-500">Horaires de travail</Label>
+                  <div className="border rounded-lg p-3 space-y-2">
+                    {selectedProvider.workingHours.map((schedule) => (
+                      <div key={schedule.day} className="flex justify-between items-center">
+                        <span className="font-medium capitalize">{schedule.day}</span>
+                        {schedule.isOpen ? (
+                          <span className="text-sm text-gray-600">
+                            {schedule.openTime} - {schedule.closeTime}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-red-500 italic">Congé</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <div className="flex justify-end mt-4">
@@ -779,6 +966,23 @@ export default function Providers() {
                   <p className="text-xs text-blue-500">Laissez vide pour ne pas modifier le mot de passe</p>
                 )}
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-paymentMethod">Méthode de règlement *</Label>
+                <Select 
+                  value={editForm.paymentMethod} 
+                  onValueChange={(value: 'facture' | 'espece') => 
+                    setEditForm((prev) => ({ ...prev, paymentMethod: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner une méthode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="espece">Espèce</SelectItem>
+                    <SelectItem value="facture">Facture</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2"><Label>Adresse *</Label><Input value={editForm.address} onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))} /></div>
@@ -795,10 +999,74 @@ export default function Providers() {
 
             <div className="space-y-2"><Label>Description</Label><Textarea value={editForm.description} onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))} className="resize-none" /></div>
 
+            <div className="space-y-2">
+              <Label className="text-base font-semibold">Horaires de travail</Label>
+              <p className="text-sm text-gray-500 mb-3">Modifiez les horaires pour chaque jour de la semaine</p>
+              <div className="border rounded-lg p-4 space-y-4 bg-gray-50">
+                {(editForm.workingHours && editForm.workingHours.length > 0) ? (
+                  editForm.workingHours.map((schedule, index) => (
+                    <div key={schedule.day} className="bg-white p-3 rounded-md border">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="font-semibold capitalize text-gray-700">{schedule.day}</div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500 whitespace-nowrap">Ouvert</span>
+                            <Switch
+                              checked={schedule.isOpen}
+                              onCheckedChange={(checked) => {
+                                const newHours = [...editForm.workingHours];
+                                newHours[index].isOpen = checked;
+                                setEditForm(prev => ({ ...prev, workingHours: newHours }));
+                              }}
+                            />
+                          </div>
+                          {schedule.isOpen ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="time"
+                                value={schedule.openTime}
+                                onChange={(e) => {
+                                  const newHours = [...editForm.workingHours];
+                                  newHours[index].openTime = e.target.value;
+                                  setEditForm(prev => ({ ...prev, workingHours: newHours }));
+                                }}
+                                className="w-24 text-xs"
+                                title="Heure d'ouverture"
+                              />
+                              <span className="text-gray-400">à</span>
+                              <Input
+                                type="time"
+                                value={schedule.closeTime}
+                                onChange={(e) => {
+                                  const newHours = [...editForm.workingHours];
+                                  newHours[index].closeTime = e.target.value;
+                                  setEditForm(prev => ({ ...prev, workingHours: newHours }));
+                                }}
+                                className="w-24 text-xs"
+                                title="Heure de fermeture"
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 italic text-sm">Fermé</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500 py-4">
+                    <p className="text-sm">Aucun horaire configuré</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Images Edit */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-2"><ImageIcon className="w-4 h-4"/> Photo de couverture</Label>
+                    <Label className="flex items-center gap-2"><ImageIcon className="w-4 h-4"/>Photo de profil</Label>
                     <div className="space-y-2">
                       <Input
                           value={editForm.image}
@@ -824,7 +1092,7 @@ export default function Providers() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-2"><UserCircle className="w-4 h-4"/> Photo de profil</Label>
+                    <Label className="flex items-center gap-2"><UserCircle className="w-4 h-4"/> Photo de couverture</Label>
                     <div className="space-y-2">
                       <Input
                           value={editForm.profileImage}

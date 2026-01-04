@@ -10,7 +10,8 @@ import {
   MapPin,
   Gift,
   Sliders,
-  UserPlus
+  UserPlus,
+  Wallet
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -86,6 +87,11 @@ const menuItems = [
     url: "/promotions",
     icon: Gift,
   },
+  {
+    title: "Cash out/Cash In",
+    url: "/cash-management",
+    icon: Wallet,
+  },
 ];
 
 const secondaryItems = [
@@ -118,6 +124,24 @@ export function AppSidebar() {
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
   const isSuperAdmin = currentUser.role === 'superAdmin';
 
+  // Define allowed menu items for admin users
+  const allowedMenuItemsForAdmin = [
+    'Dashboard',
+    'Commandes',
+    'Clients',
+    'Livreurs',
+    'Sessions livreurs',
+    'Produits',
+    'Option Groups',
+    'All Options',
+    'Zones',
+  ];
+
+  // Filter primary menu items based on role
+  const visibleMenuItems = isSuperAdmin
+    ? menuItems
+    : menuItems.filter(item => allowedMenuItemsForAdmin.includes(item.title));
+
   // Filter secondary items - only show Create Admin to superAdmins
   const visibleSecondaryItems = secondaryItems.filter(item => {
     if (item.title === "Créer un administrateur") {
@@ -144,7 +168,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Gestion</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {visibleMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={location === item.url}>
                     <Link href={item.url} data-testid={`link-${item.title.toLowerCase()}`}>

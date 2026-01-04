@@ -24,6 +24,7 @@ import CreateAdmin from "@/pages/CreateAdmin";
 import { Zones } from "@/pages/Zones";
 import { Promotions } from "@/pages/Promotions";
 import { Configuration } from "@/pages/Configuration";
+import CashManagement from "@/pages/CashManagement";
 import NotFound from "@/pages/not-found";
 import AllOptionsPage from "./pages/AllOptions";
 import OptionGroupsPage from "./pages/OptionGroups";
@@ -125,6 +126,11 @@ function Router() {
       <Route path="/promotions">
         <DashboardLayout>
           <Promotions />
+        </DashboardLayout>
+      </Route>
+      <Route path="/cash-management">
+        <DashboardLayout>
+          <CashManagement />
         </DashboardLayout>
       </Route>
       <Route path="/configuration">
