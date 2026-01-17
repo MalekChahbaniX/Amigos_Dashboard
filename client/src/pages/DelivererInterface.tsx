@@ -1,8 +1,12 @@
 import { useState, useEffect } from "react";
-import { MapPin, Phone, Truck, Clock, DollarSign, Eye, LogOut } from "lucide-react";
+import { MapPin, Phone, Truck, Clock, DollarSign, Eye, LogOut, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
+import { useDelivererWebSocket } from "@/hooks/useDelivererWebSocket";
+import { useAuth } from "@/hooks/useAuth";
 import { apiService } from "@/lib/api";
 
 interface DelivererOrder {
@@ -43,6 +47,7 @@ interface DelivererOrder {
 
 interface DelivererProfile {
   id: string;
+  _id?: string;
   firstName: string;
   lastName: string;
   phoneNumber: string;
@@ -95,23 +100,153 @@ export default function DelivererInterface() {
   const [selectedOrderForCollection, setSelectedOrderForCollection] = useState<DelivererOrder | null>(null);
   const [paymentModes, setPaymentModes] = useState<{ [key: string]: 'especes' | 'facture' }>({});
 
+  // Network error state
+  const [networkError, setNetworkError] = useState<string | null>(null);
+
+  // WebSocket state
+  const { isConnected, isReconnecting, reconnectAttempts, newOrders, connectSocket, disconnectSocket, socketRef } = useDelivererWebSocket();
+  const { toast } = useToast();
+  
+  // Auth state
+  const { user, token, isLoading: authLoading, isAuthenticated, logout } = useAuth();
+
+  // Session persistence and restoration
   useEffect(() => {
-    fetchDelivererData();
+    const restoreSession = () => {
+      const savedSessionStartTime = localStorage.getItem('sessionStartTime');
+      const delivererSessionState = localStorage.getItem('delivererSessionState');
+      const savedProfile = localStorage.getItem('delivererProfile');
+      
+      // Restore profile if available
+      if (savedProfile) {
+        try {
+          const profile = JSON.parse(savedProfile);
+          setDelivererProfile(profile);
+        } catch (error) {
+          console.error('Error restoring profile:', error);
+        }
+      }
+      
+      if (savedSessionStartTime && delivererSessionState) {
+        try {
+          const state = JSON.parse(delivererSessionState);
+          setIsSessionActive(state.isSessionActive || false);
+          setSessionStartTime(savedSessionStartTime);
+          
+          // Check if session is still valid (not older than 24 hours)
+          const sessionStart = new Date(savedSessionStartTime).getTime();
+          const now = Date.now();
+          const sessionAge = now - sessionStart;
+          const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
+          
+          if (sessionAge > maxSessionAge) {
+            // Session expired
+            localStorage.removeItem('sessionStartTime');
+            localStorage.removeItem('delivererSessionState');
+            setSessionStartTime(null);
+            setIsSessionActive(false);
+          }
+        } catch (error) {
+          console.error('Error restoring session:', error);
+        }
+      }
+    };
+    
+    restoreSession();
   }, []);
+
+  useEffect(() => {
+    console.log('🔐 Auth state changed:', {
+      authLoading,
+      isAuthenticated,
+      hasToken: !!token,
+      hasUser: !!user,
+      userId: user?._id
+    });
+    
+    // Wait for AuthContext to initialize
+    if (authLoading) return;
+    
+    // Check authentication
+    if (!isAuthenticated || !token || !user) {
+      console.warn('Not authenticated');
+      return;
+    }
+
+    // Fetch data only when authenticated
+    fetchDelivererData();
+  }, [authLoading, user, token, isAuthenticated]);
+
+  // WebSocket initialization on mount
+  useEffect(() => {
+    // Wait for auth to be ready
+    if (authLoading) return;
+    
+    // Check authentication
+    if (!isAuthenticated || !token || !user) {
+      console.warn('Not authenticated, skipping WebSocket connection');
+      return;
+    }
+    
+    // Try to restore deliverer ID from localStorage
+    const savedDelivererId = localStorage.getItem('deliverId');
+    
+    if (savedDelivererId) {
+      console.log('Restoring WebSocket connection with saved deliverer ID:', savedDelivererId);
+      connectSocket(savedDelivererId);
+    } else {
+      console.log('No saved deliverer ID, will connect after fetching profile');
+    }
+    
+    return () => {
+      disconnectSocket();
+    };
+  }, [authLoading, isAuthenticated, token, user]);
 
   useEffect(() => {
     let interval: number | undefined;
     if (isSessionActive) {
+      // Save session state to localStorage
+      const sessionStartTime = localStorage.getItem('sessionStartTime') || new Date().toISOString();
+      localStorage.setItem('sessionStartTime', sessionStartTime);
+      localStorage.setItem('delivererSessionState', JSON.stringify({ isSessionActive: true }));
+      
       interval = window.setInterval(() => setClockTick(Date.now()), 60_000);
+    } else {
+      // Clear session state from localStorage when inactive
+      localStorage.removeItem('sessionStartTime');
+      localStorage.removeItem('delivererSessionState');
     }
     return () => {
       if (interval) window.clearInterval(interval);
     };
   }, [isSessionActive]);
 
+  // Handle new orders from WebSocket
+  useEffect(() => {
+    if (newOrders.length > 0) {
+      // Refresh available orders when new orders are received
+      fetchDelivererData();
+    }
+  }, [newOrders]);
+
   const fetchDelivererData = async () => {
+    console.log('🔄 Fetching deliverer data...', {
+      isAuthenticated,
+      hasToken: !!token,
+      hasUser: !!user,
+      userId: user?._id
+    });
+    
     try {
+      // Check authentication first
+      if (!isAuthenticated || !token || !user) {
+        console.warn('Not authenticated');
+        return;
+      }
+
       setLoading(true);
+      setNetworkError(null);
       
       // Fetch all data in parallel
       const [availableOrdersData, assignedOrdersData, profileData, earningsData, sessionData, statisticsData] = await Promise.all([
@@ -132,6 +267,42 @@ export default function DelivererInterface() {
       setEarnings(earningsData && (earningsData.earnings || earningsData));
       setStatistics(statisticsData && (statisticsData.statistics || statisticsData));
 
+      // Save deliverer ID to localStorage and ensure WebSocket connection
+      // Compute delivererId with fallbacks including Mongo-style _id
+      const profile = profileData && (profileData.profile || profileData);
+      const delivererId = profile?.id || (profile as any)?._id;
+      
+      if (delivererId) {
+        const savedDelivererId = localStorage.getItem('deliverId');
+        
+        // Save deliverer ID to localStorage
+        localStorage.setItem('deliverId', delivererId);
+        
+        // Save profile to localStorage for persistence
+        if (profileData && (profileData.profile || profileData)) {
+          const profile = profileData.profile || profileData;
+          
+          // Normalize profile: ensure id is always set (use _id fallback if needed)
+          if (!profile.id && (profile as any)._id) {
+            (profile as any).id = (profile as any)._id;
+          }
+          
+          localStorage.setItem('delivererProfile', JSON.stringify(profile));
+        }
+        
+        // Connect or reconnect WebSocket if:
+        // 1. Not connected, OR
+        // 2. Deliverer ID changed (different user logged in)
+        if (!isConnected || savedDelivererId !== delivererId) {
+          console.log('Connecting WebSocket with deliverer ID:', delivererId);
+          // Disconnect old connection if exists
+          if (socketRef.current) {
+            disconnectSocket();
+          }
+          connectSocket(delivererId);
+        }
+      }
+
       if (sessionData) {
         setIsSessionActive(Boolean(sessionData.active));
         setSessionStartTime(sessionData.startedAt || sessionData.sessionStartedAt || null);
@@ -141,6 +312,13 @@ export default function DelivererInterface() {
       }
     } catch (error) {
       console.error('Error fetching deliverer data:', error);
+      
+      // Check if it's a network error
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setNetworkError('Problème de connexion réseau. Veuillez vérifier votre connexion.');
+      } else {
+        setNetworkError('Erreur lors du chargement des données. Veuillez réessayer.');
+      }
     } finally {
       setLoading(false);
     }
@@ -283,22 +461,46 @@ export default function DelivererInterface() {
 
   const handleLogout = async () => {
     try {
-      await apiService.logoutDeliverer();
-      localStorage.removeItem('authToken');
-      window.location.href = '/login';
+      // Disconnect WebSocket before logout
+      disconnectSocket();
+      
+      // Clear session state before logout
+      localStorage.removeItem('sessionStartTime');
+      localStorage.removeItem('delivererSessionState');
+      localStorage.removeItem('deliverId');
+      localStorage.removeItem('delivererProfile');
+      setSessionStartTime(null);
+      setIsSessionActive(false);
+      
+      // Call logout from AuthContext
+      if (logout) {
+        await logout();
+      }
     } catch (error) {
-      console.error('Error logging out:', error);
+      console.error('Logout error:', error);
+      // Force logout on error - clear all session data
+      localStorage.removeItem('sessionStartTime');
+      localStorage.removeItem('delivererSessionState');
+      localStorage.removeItem('deliverId');
+      localStorage.removeItem('delivererProfile');
+      setSessionStartTime(null);
+      setIsSessionActive(false);
     }
   };
 
-  if (loading) {
+  if (loading && !delivererProfile) {
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-center h-64">
-            <div className="text-center">
+            <div className="text-center space-y-4">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-4 text-muted-foreground">Chargement...</p>
+              <p className="mt-4 text-muted-foreground">Chargement de votre profil...</p>
+              {isReconnecting && (
+                <p className="text-xs text-yellow-600">
+                  Reconnexion en cours... ({reconnectAttempts}/10)
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -313,12 +515,51 @@ export default function DelivererInterface() {
           {/* Header */}
           <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-4">
             <div className="space-y-1">
-              <h1 className="text-2xl xs:text-3xl font-semibold">
-                Interface Livreur
-              </h1>
-              <p className="text-sm xs:text-base text-muted-foreground">
-                {delivererProfile ? `${delivererProfile.firstName} ${delivererProfile.lastName}` : 'Chargement...'}
-              </p>
+              <div className="flex items-center gap-3">
+                <div>
+                  <h1 className="text-2xl xs:text-3xl font-semibold">
+                    Interface Livreur
+                  </h1>
+                  <p className="text-sm xs:text-base text-muted-foreground">
+                    {delivererProfile ? `${delivererProfile.firstName} ${delivererProfile.lastName}` : 'Chargement...'}
+                  </p>
+                </div>
+                {/* Connection status badge */}
+                <div className="flex flex-col items-start gap-1">
+                  {isConnected && isSessionActive ? (
+                    <Badge className="bg-green-500 text-white">🟢 En ligne</Badge>
+                  ) : isReconnecting && isSessionActive ? (
+                    <Badge className="bg-yellow-500 text-white animate-pulse">
+                      🔄 Reconnexion ({reconnectAttempts}/10)
+                    </Badge>
+                  ) : isSessionActive ? (
+                    <Badge className="bg-orange-500 text-white">🟠 Hors ligne</Badge>
+                  ) : (
+                    <Badge variant="secondary">⚪ Session inactive</Badge>
+                  )}
+                  {isReconnecting && isSessionActive && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-yellow-600">
+                        Tentative {reconnectAttempts} sur 10
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const delivererId = localStorage.getItem('deliverId');
+                          if (delivererId) {
+                            disconnectSocket();
+                            connectSocket(delivererId);
+                          }
+                        }}
+                        className="text-xs"
+                      >
+                        Forcer reconnexion
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* Session status line */}
               <div className="text-sm text-muted-foreground">
@@ -351,6 +592,33 @@ export default function DelivererInterface() {
               )}
             </div>
           </div>
+
+          {/* New orders notification banner */}
+          {newOrders.length > 0 && (
+            <Alert className="border-blue-500 bg-blue-50">
+              <AlertDescription className="text-blue-900">
+                🔔 Vous avez {newOrders.length} nouvelle{newOrders.length > 1 ? 's' : ''} commande{newOrders.length > 1 ? 's' : ''} disponible{newOrders.length > 1 ? 's' : ''}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Network error alert */}
+          {networkError && (
+            <Alert className="border-red-500 bg-red-50">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-900 flex items-center justify-between gap-4">
+                <span>{networkError}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchDelivererData}
+                  className="border-red-300 hover:bg-red-100"
+                >
+                  Réessayer
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Tabs */}
           <div className="flex flex-wrap gap-2 xs:gap-0 xs:border-b">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search, Filter, Download, Eye } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import OrderGroupBadge from "@/components/OrderGroupBadge";
 import OrderTypeBadge from "@/components/OrderTypeBadge";
+import { OrderCountdown } from "@/components/OrderCountdown";
 import { apiService } from "@/lib/api";
+import { useAdminWebSocket } from "@/hooks/useAdminWebSocket";
+import { useAuthContext } from "@/context/AuthContext";
 
 type OrderType = "A1" | "A2" | "A3" | "A4" | undefined;
 
@@ -37,6 +40,7 @@ interface Order {
   solde?: string;
   status: "pending" | "confirmed" | "preparing" | "in_delivery" | "delivered" | "cancelled";
   date: string;
+  createdAt?: string;
   deliverer?: string | null;
   provider: string;
   items?: Array<{
@@ -70,6 +74,10 @@ export default function Orders() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  const { user } = useAuthContext();
+  const { isConnected, newOrders, connectSocket, disconnectSocket } = useAdminWebSocket();
+  const hasConnectedRef = useRef(false);
 
   const fetchOrders = async (page = 1, typeParam?: OrderType) => {
     try {
@@ -117,6 +125,31 @@ export default function Orders() {
   useEffect(() => {
     fetchOrders(1, typeFilter !== 'all' ? (typeFilter as OrderType) : undefined);
   }, [searchQuery, statusFilter, typeFilter]);
+
+  // WebSocket connection effect
+  useEffect(() => {
+    if (user?._id && !hasConnectedRef.current) {
+      console.log('🔌 Connecting admin to WebSocket:', user._id);
+      connectSocket(user._id);
+      hasConnectedRef.current = true;
+    }
+
+    return () => {
+      if (hasConnectedRef.current) {
+        console.log('🔌 Disconnecting admin from WebSocket');
+        disconnectSocket();
+        hasConnectedRef.current = false;
+      }
+    };
+  }, [user?._id]);
+
+  // Refresh orders when new orders received
+  useEffect(() => {
+    if (newOrders.length > 0) {
+      console.log('📦 New orders received, refreshing list...');
+      fetchOrders(currentPage, typeFilter !== 'all' ? (typeFilter as OrderType) : undefined);
+    }
+  }, [newOrders]);
 
   // Derived client-side filter by order type
   // Server-side filtering by `typeFilter` is used; still keep the variable for rendering
@@ -181,20 +214,22 @@ export default function Orders() {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col xs:flex-row gap-3 xs:gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Rechercher par N° commande ou client..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
-                data-testid="input-search-orders"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full xs:w-[200px] sm:w-[220px] min-h-[44px] xs:min-h-[40px] text-sm xs:text-base" data-testid="select-status-filter">
-                <Filter className="h-3 w-3 xs:h-4 xs:w-4 mr-2" />
+          <div className="flex flex-col xs:flex-row gap-3 xs:gap-4 items-start xs:items-center">
+            <div className="flex-1 w-full">
+              <div className="flex flex-col xs:flex-row gap-3 xs:gap-4 w-full">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Rechercher par N° commande ou client..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 min-h-[44px] xs:min-h-[40px] text-sm xs:text-base"
+                    data-testid="input-search-orders"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full xs:w-[200px] sm:w-[220px] min-h-[44px] xs:min-h-[40px] text-sm xs:text-base" data-testid="select-status-filter">
+                    <Filter className="h-3 w-3 xs:h-4 xs:w-4 mr-2" />
                 <SelectValue placeholder="Filtrer par statut" />
               </SelectTrigger>
               <SelectContent>
@@ -219,6 +254,14 @@ export default function Orders() {
                 <SelectItem value="A4">A4</SelectItem>
               </SelectContent>
             </Select>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-border">
+              <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className="text-xs text-muted-foreground">
+                {isConnected ? 'Connecté' : 'Déconnecté'}
+              </span>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -236,6 +279,7 @@ export default function Orders() {
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-medium text-sm xs:text-base">{order.orderNumber}</span>
                         <OrderTypeBadge type={order.orderType} />
+                        <OrderCountdown createdAt={order.createdAt || order.date} status={order.status} />
                       </div>
                       <span className="text-xs text-muted-foreground">{order.date}</span>
                     </div>
