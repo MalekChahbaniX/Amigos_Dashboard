@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, UserPlus, MapPin, Package, Trash } from "lucide-react";
+import { Search, UserPlus, MapPin, Package, Trash, Eye, EyeOff, Copy, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -22,6 +22,7 @@ interface Deliverer {
   id: string;
   name: string;
   phone: string;
+  securityCode: string;
   vehicle: string;
   currentOrders: number;
   totalDeliveries: number;
@@ -61,6 +62,9 @@ export default function Deliverers() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [revealedCodes, setRevealedCodes] = useState<Record<string, boolean>>({});
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [createdDelivererCode, setCreatedDelivererCode] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState<CreateDelivererForm>({
     name: "",
     phone: "",
@@ -167,13 +171,18 @@ export default function Deliverers() {
         location: createForm.location,
       });
 
+      // Capture the security code from the response
+      if (response.deliverer?.securityCode) {
+        setCreatedDelivererCode(response.deliverer.securityCode);
+      }
+
       toast({
         title: "Succès",
         description: response.message || "Livreur créé avec succès",
       });
 
-      setIsCreateDialogOpen(false);
-      resetCreateForm();
+      // Keep form fields populated and code visible
+      // resetCreateForm() will be called when dialog closes via onOpenChange
       fetchDeliverers(1);
     } catch (error: any) {
       console.error("Error creating deliverer:", error);
@@ -219,6 +228,59 @@ export default function Deliverers() {
     }
   };
 
+  const handleToggleRevealCode = (id: string) => {
+    setRevealedCodes((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  const handleCopyToClipboard = (code: string) => {
+    navigator.clipboard.writeText(code).then(() => {
+      toast({
+        title: "Succès",
+        description: "Code de sécurité copié au presse-papiers",
+      });
+    }).catch(() => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de copier le code",
+        variant: "destructive",
+      });
+    });
+  };
+
+  const handleRegenerateSecurityCode = async (id: string) => {
+    const confirmed = window.confirm('Régénérer le code de sécurité de ce livreur ? L\'ancien code ne sera plus valide.');
+    if (!confirmed) return;
+
+    setRegeneratingId(id);
+    try {
+      const response = await apiService.regenerateDelivererSecurityCode(id);
+
+      toast({
+        title: "Succès",
+        description: response.message || "Code de sécurité régénéré avec succès",
+      });
+
+      // Update deliverer in local state with new code
+      setDeliverers((prev) =>
+        prev.map((d) =>
+          d.id === id ? { ...d, securityCode: response.securityCode } : d
+        )
+      );
+    } catch (error: any) {
+      console.error("Error regenerating security code:", error);
+      toast({
+        title: "Erreur",
+        description: error?.message || "Erreur lors de la régénération du code",
+        variant: "destructive",
+      });
+    } finally {
+      setRegeneratingId(null);
+    }
+  };
+
   const resetCreateForm = () => {
     setCreateForm({
       name: "",
@@ -226,6 +288,7 @@ export default function Deliverers() {
       vehicle: "",
       location: "",
     });
+    setCreatedDelivererCode(null);
   };
 
   if (loading) {
@@ -248,7 +311,13 @@ export default function Deliverers() {
             Voir les sessions des livreurs
           </a>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
+          setIsCreateDialogOpen(open);
+          // Clear form and code when dialog closes
+          if (!open) {
+            resetCreateForm();
+          }
+        }}>
           <DialogTrigger asChild>
             <Button data-testid="button-add-deliverer">
               <UserPlus className="h-4 w-4 mr-2" />
@@ -319,6 +388,29 @@ export default function Deliverers() {
                 />
               </div>
             </div>
+            {createdDelivererCode && (
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-4 my-4">
+                <p className="text-sm font-medium text-blue-900 mb-2">
+                  Code de sécurité du nouveau livreur :
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-white border border-blue-300 rounded px-3 py-2 font-mono text-lg font-bold text-blue-600 text-center">
+                    {createdDelivererCode}
+                  </code>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCopyToClipboard(createdDelivererCode)}
+                    className="flex-shrink-0"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-blue-700 mt-2">
+                  Assurez-vous de partager ce code avec le livreur. Il ne sera plus visible après.
+                </p>
+              </div>
+            )}
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
               <Button
                 variant="outline"
@@ -498,6 +590,52 @@ export default function Deliverers() {
                         </p>
                       </div>
                     </div>
+                    {deliverer.securityCode && (
+                      <div className="border-t pt-3 mt-3 w-full">
+                        <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">
+                          Code de sécurité :
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 bg-gray-100 border border-gray-300 rounded px-2 py-1 font-mono text-sm font-bold">
+                            {revealedCodes[deliverer.id]
+                              ? deliverer.securityCode
+                              : "•".repeat(6)}
+                          </code>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleToggleRevealCode(deliverer.id)}
+                            className="flex-shrink-0"
+                            aria-label={revealedCodes[deliverer.id] ? "Masquer le code" : "Afficher le code"}
+                          >
+                            {revealedCodes[deliverer.id] ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCopyToClipboard(deliverer.securityCode)}
+                            className="flex-shrink-0"
+                            aria-label="Copier le code"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRegenerateSecurityCode(deliverer.id)}
+                            disabled={regeneratingId === deliverer.id}
+                            className="flex-shrink-0"
+                            aria-label="Régénérer le code"
+                          >
+                            <RefreshCw className={`h-4 w-4 ${regeneratingId === deliverer.id ? 'animate-spin' : ''}`} />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <div className="flex flex-col items-center">
                         <span className="text-xs sm:text-sm text-muted-foreground">

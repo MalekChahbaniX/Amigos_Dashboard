@@ -555,6 +555,15 @@ class ApiService {
     });
   }
 
+  async regenerateDelivererSecurityCode(id: string): Promise<{
+    message: string;
+    securityCode: string;
+  }> {
+    return this.request(`/deliverers/${id}/regenerate-security-code`, {
+      method: 'PUT',
+    });
+  }
+
   // Provider management methods
   async getProviders(type?: string, search?: string): Promise<{
     providers: Array<{
@@ -1453,6 +1462,22 @@ class ApiService {
     });
   }
 
+  // Apply global promo to all zones
+  async applyGlobalPromo(percentage: number, isActive: boolean): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      percentage: number;
+      isActive: boolean;
+      zonesUpdated: number;
+    };
+  }> {
+    return this.request('/zones/apply-global-promo', {
+      method: 'POST',
+      body: JSON.stringify({ percentage, isActive }),
+    });
+  }
+
   // ===== PROMOTION MANAGEMENT API METHODS =====
 
   // Get all promotions
@@ -1936,7 +1961,7 @@ async deleteProductOption(id: string): Promise<{
 }
 
   // Deliverer authentication methods
-  async loginDeliverer(credentials: { phoneNumber: string }): Promise<{
+  async loginDeliverer(credentials: { phoneNumber: string; securityCode: string }): Promise<{
     _id: string;
     firstName: string;
     lastName: string;
@@ -2308,7 +2333,80 @@ async deleteProductOption(id: string): Promise<{
       method: 'POST',
     });
   }
+
+  async getProviderOrders(params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    orders: Array<{
+      id: string;
+      orderNumber: string;
+      client: string;
+      phone?: string;
+      status: string;
+      totalAmount: number;
+      restaurantPayout: number;
+      items: Array<{
+        name: string;
+        quantity: number;
+        price: number;
+      }>;
+      deliveryAddress: any;
+      deliveryDriver: string | null;
+      createdAt: string;
+      date: string;
+    }>;
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    
+    return this.request(`/providers/me/orders?${queryParams.toString()}`, {
+      method: 'GET',
+    });
+  }
+
+  async updateProviderOrderStatus(
+    orderId: string,
+    status: 'preparing' | 'cancelled'
+  ): Promise<{
+    success: boolean;
+    message: string;
+    order?: {
+      id: string;
+      status: string;
+      orderNumber: string;
+    };
+  }> {
+    return this.request(`/providers/me/orders/${orderId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async getProviderOrderStats(): Promise<{
+    success: boolean;
+    stats: {
+      pending: number;
+      preparing: number;
+      completed: number;
+      cancelled: number;
+      total: number;
+    };
+  }> {
+    return this.request('/providers/me/orders/stats', {
+      method: 'GET',
+    });
+  }
 }
 
 export const apiService = new ApiService();
-export type { LoginResponse, LoginRequest };

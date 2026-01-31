@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ZoneList } from "@/components/zones/ZoneList";
 import { ZonePricing } from "@/components/zones/ZonePricing";
 import { CityZoneManager } from "@/components/zones/CityZoneManager";
+import { GlobalPromoControl } from "@/components/zones/GlobalPromoControl";
 import { apiService } from "@/lib/api";
 
 interface Zone {
@@ -11,6 +12,9 @@ interface Zone {
   minDistance: number;
   maxDistance: number;
   price: number;
+  promoPrice?: number;
+  promoPercentage?: number;
+  isPromoActive?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -52,6 +56,9 @@ export function Zones() {
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      {/* NOUVEAU: Contrôle Promo Global */}
+      <GlobalPromoControl onSuccess={handleRefresh} />
+      
       <Tabs defaultValue="list" className="space-y-4">
         <TabsList>
           <TabsTrigger value="list">Liste des Zones</TabsTrigger>

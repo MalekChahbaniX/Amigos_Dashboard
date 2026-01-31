@@ -15,6 +15,9 @@ interface Zone {
   minDistance: number;
   maxDistance: number;
   price: number;
+  promoPrice?: number;
+  promoPercentage?: number;
+  isPromoActive?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -81,9 +84,24 @@ export function ZonePricing({ zones, onUpdate }: ZonePricingProps) {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-2 text-2xl font-bold text-primary">
-                <DollarSign className="h-5 w-5" />
-                {zone.price} TND
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-2xl font-bold text-primary">
+                  <DollarSign className="h-5 w-5" />
+                  {zone.isPromoActive && zone.promoPrice !== null ? (
+                    <>
+                      <span className="line-through text-muted-foreground text-lg">{zone.price}</span>
+                      <span className="text-green-600">{zone.promoPrice}</span>
+                    </>
+                  ) : (
+                    <span>{zone.price}</span>
+                  )}
+                  TND
+                </div>
+                {zone.isPromoActive && (
+                  <Badge variant="secondary" className="text-xs">
+                    Promo: +{zone.promoPercentage}%
+                  </Badge>
+                )}
               </div>
 
               <Dialog>

@@ -11,6 +11,33 @@ interface ProviderOrder {
   payout: number;
 }
 
+interface ProviderOrderDetail {
+  id: string;
+  orderNumber: string;
+  client: string;
+  phone?: string;
+  status: 'pending' | 'preparing' | 'accepted' | 'collected' | 'in_delivery' | 'delivered' | 'cancelled';
+  totalAmount: number;
+  restaurantPayout: number;
+  items: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+  }>;
+  deliveryAddress: any;
+  deliveryDriver: string | null;
+  createdAt: string;
+  date: string;
+}
+
+interface OrderStats {
+  pending: number;
+  preparing: number;
+  completed: number;
+  cancelled: number;
+  total: number;
+}
+
 interface ProviderDailyBalance {
   id: string;
   date: string;
@@ -53,7 +80,7 @@ const typeLabels = {
 };
 
 export default function ProviderDashboard() {
-  const [activeTab, setActiveTab] = useState<'balance' | 'profile'>('balance');
+  const [activeTab, setActiveTab] = useState<'balance' | 'profile' | 'commandes'>('balance');
   const [providerProfile, setProviderProfile] = useState<ProviderProfile | null>(null);
   const [earnings, setEarnings] = useState<ProviderEarnings | null>(null);
   const [dailyBalance, setDailyBalance] = useState<ProviderDailyBalance[]>([]);
@@ -65,9 +92,22 @@ export default function ProviderDashboard() {
   const [paymentMode, setPaymentMode] = useState<'especes' | 'facture' | 'virement'>('especes');
   const [processingPayment, setProcessingPayment] = useState(false);
 
+  // Orders state
+  const [orders, setOrders] = useState<ProviderOrderDetail[]>([]);
+  const [orderStats, setOrderStats] = useState<OrderStats | null>(null);
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<ProviderOrderDetail | null>(null);
+
   useEffect(() => {
     fetchProviderData();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'commandes') {
+      fetchOrders(orderStatusFilter);
+    }
+  }, [activeTab, orderStatusFilter]);
 
   const fetchProviderData = async () => {
     try {
@@ -93,6 +133,42 @@ export default function ProviderDashboard() {
       console.error('Error fetching provider data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchOrders = async (status?: string) => {
+    try {
+      setLoadingOrders(true);
+      const [ordersRes, statsRes] = await Promise.all([
+        apiService.getProviderOrders({ status: status !== 'all' ? status : undefined, limit: 50 }),
+        apiService.getProviderOrderStats()
+      ]);
+
+      if (ordersRes.success && ordersRes.orders) {
+        setOrders(ordersRes.orders as ProviderOrderDetail[]);
+      }
+
+      if (statsRes.success && statsRes.stats) {
+        setOrderStats(statsRes.stats);
+      }
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const handleUpdateOrderStatus = async (orderId: string, status: 'preparing' | 'cancelled') => {
+    try {
+      const result = await apiService.updateProviderOrderStatus(orderId, status);
+      
+      if (result.success) {
+        // Refresh orders
+        fetchOrders(orderStatusFilter);
+        setSelectedOrder(null);
+      }
+    } catch (error) {
+      console.error('Error updating order status:', error);
     }
   };
 
@@ -186,6 +262,16 @@ export default function ProviderDashboard() {
             }`}
           >
             Profil
+          </button>
+          <button
+            onClick={() => setActiveTab('commandes')}
+            className={`pb-4 px-4 font-medium transition-colors ${
+              activeTab === 'commandes'
+                ? 'text-primary border-b-2 border-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Commandes {orderStats && `(${orderStats.pending + orderStats.preparing})`}
           </button>
         </div>
 
@@ -371,6 +457,169 @@ export default function ProviderDashboard() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Commandes Tab */}
+        {activeTab === 'commandes' && (
+          <div className="space-y-6">
+            {/* Order Statistics */}
+            {orderStats && (
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">En attente</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-orange-600">{orderStats.pending}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">En préparation</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-purple-600">{orderStats.preparing}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Complétées</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-600">{orderStats.completed}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Annulées</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-red-600">{orderStats.cancelled}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Total</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{orderStats.total}</div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Filter */}
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle>Liste des commandes</CardTitle>
+                  <div className="flex gap-2">
+                    {['pending', 'preparing', 'completed'].map((status) => (
+                      <Button
+                        key={status}
+                        size="sm"
+                        variant={orderStatusFilter === status ? 'default' : 'outline'}
+                        onClick={() => setOrderStatusFilter(status === 'completed' ? 'delivered' : status)}
+                      >
+                        {status === 'pending' ? 'En attente' :
+                         status === 'preparing' ? 'En préparation' :
+                         'Complétées'}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loadingOrders ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                    <p className="mt-4 text-muted-foreground">Chargement...</p>
+                  </div>
+                ) : orders.length > 0 ? (
+                  <div className="space-y-3">
+                    {orders.map((order) => (
+                      <div key={order.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-mono font-medium">{order.orderNumber}</p>
+                              <Badge variant={
+                                order.status === 'pending' ? 'secondary' :
+                                order.status === 'preparing' ? 'default' :
+                                order.status === 'delivered' ? 'outline' : 'destructive'
+                              }>
+                                {order.status === 'pending' ? 'En attente' :
+                                 order.status === 'preparing' ? 'En préparation' :
+                                 order.status === 'delivered' ? 'Livrée' : 'Annulée'}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">{order.client}</p>
+                            <p className="text-xs text-muted-foreground">{order.date}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold">{order.totalAmount.toFixed(3)} DT</p>
+                            <p className="text-sm text-muted-foreground">
+                              Payout: {order.restaurantPayout.toFixed(3)} DT
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="bg-muted/50 rounded p-3 mb-3 max-h-32 overflow-y-auto">
+                          <p className="text-sm font-medium mb-2">Articles:</p>
+                          <div className="space-y-1">
+                            {order.items.map((item, idx) => (
+                              <div key={idx} className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">
+                                  {item.name} x{item.quantity}
+                                </span>
+                                <span className="font-medium">{item.price.toFixed(3)} DT</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {order.status === 'pending' && (
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleUpdateOrderStatus(order.id, 'preparing')}
+                              className="flex-1"
+                            >
+                              Réaliser
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleUpdateOrderStatus(order.id, 'cancelled')}
+                              className="flex-1"
+                            >
+                              Annuler
+                            </Button>
+                          </div>
+                        )}
+
+                        {order.status === 'preparing' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedOrder(order)}
+                            className="w-full"
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            Voir les détails
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Aucune commande trouvée
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Payment Modal */}

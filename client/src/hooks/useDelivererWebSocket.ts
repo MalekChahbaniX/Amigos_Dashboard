@@ -106,8 +106,8 @@ export const useDelivererWebSocket = () => {
 
       console.log('🔌 Connecting to Socket.IO server...');
     // Create socket connection
-    const socket: Socket = io('https://amigosdelivery25.com', {
-    //  const socket: Socket = io('http://192.168.1.104:5000', {
+    //const socket: Socket = io('https://amigosdelivery25.com', {
+      const socket: Socket = io('http://192.168.1.104:5000', {
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionDelay: 1000,

@@ -59,6 +59,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [securityCode, setSecurityCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const config = roleConfigs[currentRole];
@@ -80,6 +81,24 @@ export default function Login() {
       toast({
         title: "Erreur",
         description: "Veuillez saisir votre numéro de téléphone",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isEmailField && !securityCode) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez saisir votre code de sécurité à 6 chiffres",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isEmailField && securityCode.length !== 6) {
+      toast({
+        title: "Erreur",
+        description: "Le code de sécurité doit contenir exactement 6 chiffres",
         variant: "destructive",
       });
       return;
@@ -119,6 +138,7 @@ export default function Login() {
       } else if (currentRole === "deliverer") {
         response = await apiService.loginDeliverer({
           phoneNumber: `+216${phoneNumber.replace(/\D/g, "")}`,
+          securityCode: securityCode
         });
         userData = {
           _id: response._id,
@@ -164,11 +184,21 @@ export default function Login() {
       }
     } catch (error: any) {
       console.error(`${currentRole} login error:`, error);
+      let errorDescription = "Identifiants invalides. Veuillez vérifier vos informations.";
+      
+      if (currentRole === "deliverer") {
+        if (error.message && error.message.includes("code")) {
+          errorDescription = "Code de sécurité incorrect";
+        } else if (error.message && error.message.includes("téléphone")) {
+          errorDescription = "Numéro de téléphone invalide";
+        } else {
+          errorDescription = "Numéro de téléphone ou code de sécurité invalide";
+        }
+      }
+      
       toast({
         title: "Erreur de connexion",
-        description:
-          error.message ||
-          "Identifiants invalides. Veuillez vérifier vos informations.",
+        description: currentRole === "deliverer" ? errorDescription : (error.message || errorDescription),
         variant: "destructive",
       });
     } finally {
@@ -181,6 +211,7 @@ export default function Login() {
     setEmail("");
     setPassword("");
     setPhoneNumber("");
+    setSecurityCode("");
   };
 
   return (
@@ -285,33 +316,68 @@ export default function Login() {
                   </div>
                 </>
               ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-base font-semibold">
-                    Numéro de téléphone
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-base font-medium text-gray-600">
-                      +216
-                    </span>
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone" className="text-base font-semibold">
+                      Numéro de téléphone
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-medium text-gray-600">
+                        +216
+                      </span>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="12345678"
+                        value={phoneNumber}
+                        onChange={(e) => {
+                          const cleaned = e.target.value.replace(/\D/g, "");
+                          setPhoneNumber(cleaned.slice(0, 8));
+                        }}
+                        disabled={isLoading}
+                        className="h-11 text-base"
+                        maxLength={8}
+                        required
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Format: 8 chiffres (ex: 12345678)
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="securityCode" className="text-base font-semibold">
+                      Code de sécurité
+                    </Label>
                     <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="12345678"
-                      value={phoneNumber}
+                      id="securityCode"
+                      type="text"
+                      placeholder="123456"
+                      value={securityCode}
                       onChange={(e) => {
                         const cleaned = e.target.value.replace(/\D/g, "");
-                        setPhoneNumber(cleaned.slice(0, 8));
+                        setSecurityCode(cleaned.slice(0, 6));
                       }}
+                      maxLength={6}
                       disabled={isLoading}
-                      className="h-11 text-base"
-                      maxLength={8}
+                      className="h-11 text-base font-mono tracking-widest text-center"
                       required
+                      aria-label="Code de sécurité à 6 chiffres"
+                      aria-required="true"
+                      aria-describedby="securityCodeHelp"
+                      autoComplete="off"
                     />
+                    <p id="securityCodeHelp" className="text-xs text-gray-500 mt-2">
+                      Code à 6 chiffres fourni par l'administrateur
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Format: 8 chiffres (ex: 12345678)
-                  </p>
-                </div>
+
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm text-amber-800">
+                      <span className="font-semibold">🔐 Code de sécurité:</span> Votre code de sécurité vous a été fourni lors de votre inscription. Contactez l'administrateur si vous l'avez oublié.
+                    </p>
+                  </div>
+                </>
               )}
 
               <Button

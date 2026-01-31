@@ -141,18 +141,26 @@ export const useAdminWebSocket = () => {
 
       console.log('🔌 Connecting to Socket.IO server...');
       
-      // Determine the socket server URL from environment or fallback to dev URL
+      // Déterminer l'URL du serveur Socket.IO
       const socketUrl = import.meta.env.VITE_API_URL 
         ? import.meta.env.VITE_API_URL.replace('/api', '') 
-        : (import.meta.env.VITE_DEV_API_URL?.replace('/api', '') || 'https://amigosdelivery25.com/api');
-      //  : (import.meta.env.VITE_DEV_API_URL?.replace('/api', '') || 'http://192.168.1.104:5000/api');
-      
+        : (import.meta.env.DEV 
+            ? 'http://192.168.1.104:5000'  // Dev local
+            : 'https://amigosdelivery25.com');  // Production
+
+      console.log(`🔌 Connecting to Socket.IO at: ${socketUrl}`);
+
       const socket: Socket = io(socketUrl, {
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
-        reconnectionAttempts: 5,
+        reconnectionAttempts: 10,
+        timeout: 20000,
+        autoConnect: true,
+        upgrade: true,
+        rememberUpgrade: true,
+        path: '/socket.io/'
       });
 
       socketRef.current = socket;

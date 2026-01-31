@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useDelivererWebSocket } from "@/hooks/useDelivererWebSocket";
 import { useAuth } from "@/hooks/useAuth";
@@ -81,6 +84,13 @@ interface DelivererEarnings {
   }>;
 }
 
+// Admin support contact configuration
+const ADMIN_SUPPORT_CONTACT = {
+  phone: "+216 25 123 456",
+  email: "support@amigos.tn",
+  hours: "Lun-Ven 08h-18h"
+};
+
 export default function DelivererInterface() {
   const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'earnings'>('orders');
   const [availableOrders, setAvailableOrders] = useState<DelivererOrder[]>([]);
@@ -99,6 +109,18 @@ export default function DelivererInterface() {
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
   const [selectedOrderForCollection, setSelectedOrderForCollection] = useState<DelivererOrder | null>(null);
   const [paymentModes, setPaymentModes] = useState<{ [key: string]: 'especes' | 'facture' }>({});
+
+  // Delivery confirmation modal state
+  const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
+  const [selectedOrderForDelivery, setSelectedOrderForDelivery] = useState<DelivererOrder | null>(null);
+  const [deliverySecurityCode, setDeliverySecurityCode] = useState("");
+
+  // Security code for collection
+  const [collectionSecurityCode, setCollectionSecurityCode] = useState("");
+
+  // Session security code modal state
+  const [sessionSecurityModalOpen, setSessionSecurityModalOpen] = useState(false);
+  const [sessionSecurityCode, setSessionSecurityCode] = useState("");
 
   // Network error state
   const [networkError, setNetworkError] = useState<string | null>(null);
@@ -324,18 +346,47 @@ export default function DelivererInterface() {
     }
   };
 
-  const handleStartSession = async () => {
+  const handleStartSession = () => {
+    // Show security code modal instead of starting directly
+    setSessionSecurityModalOpen(true);
+    setSessionSecurityCode("");
+  };
+
+  const handleConfirmSessionStart = async () => {
     try {
+      // Validate security code before submission
+      if (!sessionSecurityCode || sessionSecurityCode.length !== 6) {
+        toast({
+          title: "Erreur",
+          description: "Veuillez saisir votre code de sécurité à 6 chiffres",
+          variant: "destructive",
+        });
+        return;
+      }
+
       if ((apiService as any).startDelivererSession) {
-        await (apiService as any).startDelivererSession();
+        await (apiService as any).startDelivererSession({ securityCode: sessionSecurityCode });
       } else if ((apiService as any).startSession) {
-        await (apiService as any).startSession();
+        await (apiService as any).startSession({ securityCode: sessionSecurityCode });
       } else {
         console.warn('No API method found to start session');
       }
+      
+      setSessionSecurityModalOpen(false);
+      setSessionSecurityCode("");
       await fetchDelivererData();
-    } catch (error) {
+      
+      toast({
+        title: "Succès",
+        description: "Session démarrée avec succès",
+      });
+    } catch (error: any) {
       console.error('Error starting session:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de démarrer la session. Veuillez vérifier votre code de sécurité.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -425,37 +476,103 @@ export default function DelivererInterface() {
       initialModes['main'] = 'especes';
     }
     setPaymentModes(initialModes);
+    setCollectionSecurityCode("");
     setCollectionModalOpen(true);
   };
 
   const handleConfirmCollection = async () => {
     if (!selectedOrderForCollection) return;
 
+    // Validate security code
+    if (!collectionSecurityCode || collectionSecurityCode.length !== 6) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez saisir votre code de sécurité à 6 chiffres",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       let paymentModeData;
       if (selectedOrderForCollection.isGrouped && selectedOrderForCollection.groupedOrders?.length) {
-        // For grouped orders, prepare array of {provider, mode}
         paymentModeData = selectedOrderForCollection.groupedOrders.map((grouped: any, idx: number) => ({
           provider: grouped.provider?.id || `provider_${idx}`,
           mode: paymentModes[`order_${idx}`] || 'especes'
         }));
       } else {
-        // For single order, just use the payment mode
         paymentModeData = paymentModes['main'] || 'especes';
       }
 
       const result = await apiService.updateOrderStatus(selectedOrderForCollection.id, 'collected', {
-        providerPaymentMode: paymentModeData
+        providerPaymentMode: paymentModeData,
+        securityCode: collectionSecurityCode
       });
 
       if (result.success) {
+        toast({
+          title: "Succès",
+          description: "Collecte confirmée avec succès",
+        });
         setCollectionModalOpen(false);
         setSelectedOrderForCollection(null);
         setPaymentModes({});
+        setCollectionSecurityCode("");
         fetchDelivererData();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error confirming collection:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Code de sécurité invalide ou erreur lors de la confirmation",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleOpenDeliveryModal = (order: DelivererOrder) => {
+    setSelectedOrderForDelivery(order);
+    setDeliverySecurityCode("");
+    setDeliveryModalOpen(true);
+  };
+
+  const handleConfirmDelivery = async () => {
+    if (!selectedOrderForDelivery) return;
+
+    // Validate security code
+    if (!deliverySecurityCode || deliverySecurityCode.length !== 6) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez saisir votre code de sécurité à 6 chiffres",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const result = await apiService.updateOrderStatus(
+        selectedOrderForDelivery.id, 
+        'delivered',
+        { securityCode: deliverySecurityCode }
+      );
+
+      if (result.success) {
+        toast({
+          title: "Succès",
+          description: "Livraison confirmée avec succès",
+        });
+        setDeliveryModalOpen(false);
+        setSelectedOrderForDelivery(null);
+        setDeliverySecurityCode("");
+        fetchDelivererData();
+      }
+    } catch (error: any) {
+      console.error('Error confirming delivery:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Code de sécurité invalide ou erreur lors de la confirmation",
+        variant: "destructive",
+      });
     }
   };
 
@@ -887,7 +1004,7 @@ export default function DelivererInterface() {
                           <div className="flex gap-2">
                             <Button
                               size="sm"
-                              onClick={() => handleUpdateStatus(order.id, 'delivered')}
+                              onClick={() => handleOpenDeliveryModal(order)}
                               disabled={!isSessionActive}
                               className="flex-1"
                             >
@@ -1209,6 +1326,33 @@ export default function DelivererInterface() {
                   )}
                 </div>
 
+                <div className="space-y-2 border-t pt-4">
+                  <Label htmlFor="collectionCode" className="text-base font-semibold">
+                    Code de sécurité
+                  </Label>
+                  <Input
+                    id="collectionCode"
+                    type="password"
+                    placeholder="••••••"
+                    value={collectionSecurityCode}
+                    onChange={(e) => {
+                      const cleaned = e.target.value.replace(/\D/g, "");
+                      setCollectionSecurityCode(cleaned.slice(0, 6));
+                    }}
+                    maxLength={6}
+                    className="h-11 text-base font-mono tracking-widest text-center"
+                    required
+                    aria-label="Code de sécurité à 6 chiffres"
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Saisissez votre code de sécurité à 6 chiffres pour confirmer la collecte
+                  </p>
+                  <p className="text-xs text-blue-600">
+                    Code oublié ? Contactez le support: <strong>{ADMIN_SUPPORT_CONTACT.phone}</strong> ou <strong>{ADMIN_SUPPORT_CONTACT.email}</strong> ({ADMIN_SUPPORT_CONTACT.hours})
+                  </p>
+                </div>
+
                 <div className="bg-muted p-3 rounded">
                   <p className="text-sm font-medium">Montant total prestataire</p>
                   <p className="text-lg font-bold">{selectedOrderForCollection.total} DT</p>
@@ -1220,6 +1364,7 @@ export default function DelivererInterface() {
                     onClick={() => {
                       setCollectionModalOpen(false);
                       setSelectedOrderForCollection(null);
+                      setCollectionSecurityCode("");
                     }}
                     className="flex-1"
                   >
@@ -1236,6 +1381,133 @@ export default function DelivererInterface() {
             </Card>
           </div>
         )}
+
+        {/* Session Security Code Modal */}
+        <Dialog open={sessionSecurityModalOpen} onOpenChange={setSessionSecurityModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirmer le démarrage de session</DialogTitle>
+              <DialogDescription>
+                Veuillez saisir votre code de sécurité à 6 chiffres pour démarrer votre session de livraison.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="sessionCode" className="text-base font-semibold">
+                  Code de sécurité
+                </Label>
+                <Input
+                  id="sessionCode"
+                  type="text"
+                  placeholder="123456"
+                  value={sessionSecurityCode}
+                  onChange={(e) => {
+                    const cleaned = e.target.value.replace(/\D/g, "");
+                    setSessionSecurityCode(cleaned.slice(0, 6));
+                  }}
+                  maxLength={6}
+                  className="h-11 text-base font-mono tracking-widest text-center"
+                  required
+                  aria-label="Code de sécurité à 6 chiffres"
+                  aria-required="true"
+                  autoComplete="off"
+                />
+                <p className="text-xs text-gray-500">
+                  Code à 6 chiffres fourni par l'administrateur
+                </p>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSessionSecurityModalOpen(false);
+                    setSessionSecurityCode("");
+                  }}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  onClick={handleConfirmSessionStart}
+                >
+                  Démarrer la session
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delivery Confirmation Modal */}
+        <Dialog open={deliveryModalOpen} onOpenChange={setDeliveryModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirmer la livraison</DialogTitle>
+              <DialogDescription>
+                Veuillez saisir votre code de sécurité à 6 chiffres pour confirmer que la commande a été livrée au client.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {selectedOrderForDelivery && (
+                <div className="bg-muted p-3 rounded space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Commande:</span>
+                    <Badge>{selectedOrderForDelivery.orderNumber}</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Client:</span>
+                    <span className="text-sm">{selectedOrderForDelivery.client.name}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Montant:</span>
+                    <span className="text-sm font-bold">{selectedOrderForDelivery.total} DT</span>
+                  </div>
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <Label htmlFor="deliveryCode" className="text-base font-semibold">
+                  Code de sécurité
+                </Label>
+                <Input
+                  id="deliveryCode"
+                  type="password"
+                  placeholder="••••••"
+                  value={deliverySecurityCode}
+                  onChange={(e) => {
+                    const cleaned = e.target.value.replace(/\D/g, "");
+                    setDeliverySecurityCode(cleaned.slice(0, 6));
+                  }}
+                  maxLength={6}
+                  className="h-11 text-base font-mono tracking-widest text-center"
+                  required
+                  aria-label="Code de sécurité à 6 chiffres"
+                  autoComplete="off"
+                />
+                <p className="text-xs text-gray-500">
+                  Saisissez votre code de sécurité pour confirmer la livraison
+                </p>
+                <p className="text-xs text-blue-600">
+                  Code oublié ? Contactez le support: <strong>{ADMIN_SUPPORT_CONTACT.phone}</strong> ou <strong>{ADMIN_SUPPORT_CONTACT.email}</strong> ({ADMIN_SUPPORT_CONTACT.hours})
+                </p>
+              </div>
+              
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDeliveryModalOpen(false);
+                    setSelectedOrderForDelivery(null);
+                    setDeliverySecurityCode("");
+                  }}
+                >
+                  Annuler
+                </Button>
+                <Button onClick={handleConfirmDelivery}>
+                  Confirmer la livraison
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

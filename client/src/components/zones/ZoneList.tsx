@@ -14,6 +14,9 @@ interface Zone {
   minDistance: number;
   maxDistance: number;
   price: number;
+  promoPrice?: number;
+  promoPercentage?: number;
+  isPromoActive?: boolean;
   createdAt: string;
   updatedAt: string;
 }
