@@ -22,7 +22,7 @@ interface Deliverer {
   id: string;
   name: string;
   phone: string;
-  securityCode: string;
+  securityCode?: string;
   vehicle: string;
   currentOrders: number;
   totalDeliveries: number;
@@ -172,8 +172,8 @@ export default function Deliverers() {
       });
 
       // Capture the security code from the response
-      if (response.deliverer?.securityCode) {
-        setCreatedDelivererCode(response.deliverer.securityCode);
+      if ((response as any).securityCode) {
+        setCreatedDelivererCode((response as any).securityCode);
       }
 
       toast({
@@ -235,7 +235,8 @@ export default function Deliverers() {
     }));
   };
 
-  const handleCopyToClipboard = (code: string) => {
+  const handleCopyToClipboard = (code: string | undefined) => {
+    if (!code) return;
     navigator.clipboard.writeText(code).then(() => {
       toast({
         title: "Succès",
@@ -617,7 +618,7 @@ export default function Deliverers() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleCopyToClipboard(deliverer.securityCode)}
+                            onClick={() => deliverer.securityCode && handleCopyToClipboard(deliverer.securityCode)}
                             className="flex-shrink-0"
                             aria-label="Copier le code"
                           >
