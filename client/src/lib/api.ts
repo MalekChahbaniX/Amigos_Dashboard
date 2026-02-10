@@ -421,9 +421,12 @@ class ApiService {
   }
 
   // Methods deliverer-side for starting/stopping and checking current session
-  async startDelivererSession(): Promise<{ success: boolean; message: string; session?: any }> {
+  async startDelivererSession(securityCode?: { securityCode: string }): Promise<{ success: boolean; message: string; session?: any }> {
     // deliverer routes are mounted under /api/deliverer (singular)
-    return this.request('/deliverer/session/start', { method: 'POST' });
+    return this.request('/deliverer/session/start', { 
+      method: 'POST',
+      body: JSON.stringify(securityCode || {})
+    });
   }
 
   // Alias used in some builds
@@ -438,6 +441,14 @@ class ApiService {
   // Alias
   async endSession(): Promise<{ success: boolean; message: string; session?: any }> {
     return this.endDelivererSession();
+  }
+
+  async pauseDelivererSession(): Promise<{ success: boolean; message: string; session?: any }> {
+    return this.request('/deliverer/session/pause', { method: 'POST' });
+  }
+
+  async resumeDelivererSession(): Promise<{ success: boolean; message: string; session?: any }> {
+    return this.request('/deliverer/session/resume', { method: 'POST' });
   }
 
   // Get the current active session for the authenticated deliverer (if any)

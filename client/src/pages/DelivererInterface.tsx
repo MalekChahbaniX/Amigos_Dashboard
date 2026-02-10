@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { MapPin, Phone, Truck, Clock, DollarSign, Eye, LogOut, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,36 @@ import { useToast } from "@/hooks/use-toast";
 import { useDelivererWebSocket } from "@/hooks/useDelivererWebSocket";
 import { useAuth } from "@/hooks/useAuth";
 import { apiService } from "@/lib/api";
+
+interface OrderNotification {
+  orderId: string;
+  orderNumber: string;
+  client: {
+    name: string;
+    phone: string;
+    location: any;
+  };
+  provider: {
+    name: string;
+    type: string;
+    phone: string;
+    address: string;
+  };
+  items: any[];
+  total: number;
+  solde: number;
+  deliveryAddress: any;
+  paymentMethod: string;
+  finalAmount: number;
+  createdAt: string;
+  platformSolde: number;
+  distance?: number;
+  zone?: any;
+  orderType?: string;
+  groupSize?: number;
+  isGrouped?: boolean;
+  status?: string;
+}
 
 interface DelivererOrder {
   id: string;
@@ -128,6 +159,7 @@ export default function DelivererInterface() {
   // WebSocket state
   const { isConnected, isReconnecting, reconnectAttempts, newOrders, connectSocket, disconnectSocket, socketRef } = useDelivererWebSocket();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   
   // Auth state
   const { user, token, isLoading: authLoading, isAuthenticated, logout } = useAuth();
@@ -247,8 +279,35 @@ export default function DelivererInterface() {
   // Handle new orders from WebSocket
   useEffect(() => {
     if (newOrders.length > 0) {
-      // Refresh available orders when new orders are received
-      fetchDelivererData();
+      console.log('📦 New orders received via WebSocket:', newOrders.length);
+      
+      // Ajouter les nouvelles commandes à la liste des commandes disponibles
+      setAvailableOrders(prev => {
+        const existingIds = new Set(prev.map(o => o.id));
+        const newUniqueOrders = newOrders.map((order: any) => ({
+          id: order.orderId, // S'assurer que l'ID est correct pour l'affichage
+          orderNumber: order.orderNumber,
+          orderType: (order as any).orderType || 'A1',
+          client: order.client,
+          provider: order.provider,
+          items: order.items,
+          total: order.total,
+          solde: order.solde,
+          deliveryAddress: order.deliveryAddress,
+          paymentMethod: order.paymentMethod,
+          finalAmount: order.finalAmount,
+          createdAt: order.createdAt,
+          platformSolde: order.platformSolde,
+          distance: order.distance,
+          zone: order.zone,
+          groupSize: (order as any).groupSize,
+          isGrouped: (order as any).isGrouped,
+          status: (order as any).status || 'pending'
+        } as DelivererOrder)).filter((order: any) => !existingIds.has(order.orderId));
+        
+        console.log('📦 Adding orders to available list:', newUniqueOrders.length);
+        return [...newUniqueOrders, ...prev];
+      });
     }
   }, [newOrders]);
 
@@ -270,30 +329,44 @@ export default function DelivererInterface() {
       setLoading(true);
       setNetworkError(null);
       
+      // Vérifier d'abord si une session est active
+      let sessionActive = false;
+      try {
+        const sessionData = await apiService.getDelivererSession();
+        sessionActive = sessionData.active;
+        setIsSessionActive(sessionActive);
+        if (sessionData.active && sessionData.startedAt) {
+          setSessionStartTime(sessionData.startedAt);
+        }
+      } catch (error) {
+        console.warn('Error checking session:', error);
+        setIsSessionActive(false);
+      }
+      
+      // Ne récupérer les données que si la session est active
+      if (!sessionActive) {
+        console.log('No active session - skipping data fetch');
+        setLoading(false);
+        return;
+      }
+      
       // Fetch all data in parallel
-      const [availableOrdersData, assignedOrdersData, profileData, earningsData, sessionData, statisticsData] = await Promise.all([
+      const [availableOrdersData, assignedOrdersData, profileData, earningsData, statisticsData] = await Promise.all([
         apiService.getDelivererAvailableOrders(),
         apiService.getDelivererOrders(),
         apiService.getDelivererProfile(),
         apiService.getDelivererEarnings(),
-        // session info (may return { active: boolean, startedAt: string })
-        // this method name follows the review comment
-        (apiService as any).getDelivererSession ? (apiService as any).getDelivererSession() : Promise.resolve({ active: false, startedAt: null }),
         apiService.getDelivererStatistics()
       ]);
 
-      // Map and defensive reads in case backend returns differently
-      setAvailableOrders((availableOrdersData && (availableOrdersData.orders || availableOrdersData)) || []);
-      setAssignedOrders((assignedOrdersData && (assignedOrdersData.orders || assignedOrdersData)) || []);
-      setDelivererProfile(profileData && (profileData.profile || profileData));
-      setEarnings(earningsData && (earningsData.earnings || earningsData));
-      setStatistics(statisticsData && (statisticsData.statistics || statisticsData));
-
-      // Save deliverer ID to localStorage and ensure WebSocket connection
-      // Compute delivererId with fallbacks including Mongo-style _id
-      const profile = profileData && (profileData.profile || profileData);
-      const delivererId = profile?.id || (profile as any)?._id;
+      setAvailableOrders(availableOrdersData.orders || []);
+      setAssignedOrders(assignedOrdersData.orders || []);
+      setDelivererProfile(profileData.profile);
+      setEarnings(earningsData.earnings || earningsData);
+      setStatistics(statisticsData);
       
+      // WebSocket connection
+      const delivererId = profileData.profile?.id;
       if (delivererId) {
         const savedDelivererId = localStorage.getItem('deliverId');
         
@@ -301,36 +374,18 @@ export default function DelivererInterface() {
         localStorage.setItem('deliverId', delivererId);
         
         // Save profile to localStorage for persistence
-        if (profileData && (profileData.profile || profileData)) {
-          const profile = profileData.profile || profileData;
-          
-          // Normalize profile: ensure id is always set (use _id fallback if needed)
-          if (!profile.id && (profile as any)._id) {
-            (profile as any).id = (profile as any)._id;
-          }
-          
-          localStorage.setItem('delivererProfile', JSON.stringify(profile));
+        if (profileData.profile) {
+          localStorage.setItem('delivererProfile', JSON.stringify(profileData.profile));
         }
         
-        // Connect or reconnect WebSocket if:
-        // 1. Not connected, OR
-        // 2. Deliverer ID changed (different user logged in)
+        // Connect or reconnect WebSocket if needed
         if (!isConnected || savedDelivererId !== delivererId) {
           console.log('Connecting WebSocket with deliverer ID:', delivererId);
-          // Disconnect old connection if exists
           if (socketRef.current) {
             disconnectSocket();
           }
           connectSocket(delivererId);
         }
-      }
-
-      if (sessionData) {
-        setIsSessionActive(Boolean(sessionData.active));
-        setSessionStartTime(sessionData.startedAt || sessionData.sessionStartedAt || null);
-      } else {
-        setIsSessionActive(false);
-        setSessionStartTime(null);
       }
     } catch (error) {
       console.error('Error fetching deliverer data:', error);
@@ -410,6 +465,50 @@ export default function DelivererInterface() {
     }
   };
 
+  const handlePauseSession = async () => {
+    try {
+      if ((apiService as any).pauseDelivererSession) {
+        await (apiService as any).pauseDelivererSession();
+      } else {
+        console.warn('No API method found to pause session');
+      }
+      await fetchDelivererData();
+      toast({
+        title: "Succès",
+        description: "Session mise en pause",
+      });
+    } catch (error: any) {
+      console.error('Error pausing session:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de mettre la session en pause.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleResumeSession = async () => {
+    try {
+      if ((apiService as any).resumeDelivererSession) {
+        await (apiService as any).resumeDelivererSession();
+      } else {
+        console.warn('No API method found to resume session');
+      }
+      await fetchDelivererData();
+      toast({
+        title: "Succès",
+        description: "Session reprise",
+      });
+    } catch (error: any) {
+      console.error('Error resuming session:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de reprendre la session.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getOrderSolde = (order: DelivererOrder) => {
     const t = (order.orderType || (order as any).type || '').toString();
     if (t === 'A1' && typeof order.soldeSimple === 'number') return `${order.soldeSimple} DT`;
@@ -432,6 +531,7 @@ export default function DelivererInterface() {
   };
 
   const handleAcceptOrder = async (orderId: string) => {
+    console.log('🎯 Accepting order with ID:', orderId);
     try {
       const result = await apiService.acceptOrder(orderId);
       if (result.success) {
@@ -593,6 +693,9 @@ export default function DelivererInterface() {
       if (logout) {
         await logout();
       }
+      
+      // Navigate to login page
+      setLocation('/login');
     } catch (error) {
       console.error('Logout error:', error);
       // Force logout on error - clear all session data
@@ -602,6 +705,9 @@ export default function DelivererInterface() {
       localStorage.removeItem('delivererProfile');
       setSessionStartTime(null);
       setIsSessionActive(false);
+      
+      // Still navigate to login page even on error
+      setLocation('/login');
     }
   };
 
@@ -681,7 +787,14 @@ export default function DelivererInterface() {
               {/* Session status line */}
               <div className="text-sm text-muted-foreground">
                 {isSessionActive ? (
-                  <span>Session active depuis {formatDuration(sessionStartTime)}</span>
+                  delivererProfile?.status === 'paused' ? (
+                    <div>
+                      <span className="text-orange-600 font-medium">Session en pause depuis {formatDuration(sessionStartTime)}</span>
+                      <div className="text-xs mt-1">Reprenez la session pour recevoir des commandes</div>
+                    </div>
+                  ) : (
+                    <span>Session active depuis {formatDuration(sessionStartTime)}</span>
+                  )
                 ) : (
                   <span>Session inactive</span>
                 )}
@@ -699,9 +812,20 @@ export default function DelivererInterface() {
 
               {/* Start/End session button */}
               {isSessionActive ? (
-                <Button variant="destructive" onClick={handleEndSession}>
-                  Terminer la session
-                </Button>
+                <div className="flex gap-2">
+                  {delivererProfile?.status === 'paused' ? (
+                    <Button variant="secondary" onClick={handleResumeSession}>
+                      Reprendre la session
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" onClick={handlePauseSession}>
+                      Mettre en pause
+                    </Button>
+                  )}
+                  <Button variant="destructive" onClick={handleEndSession}>
+                    Terminer la session
+                  </Button>
+                </div>
               ) : (
                 <Button variant="secondary" onClick={handleStartSession}>
                   Démarrer la session
@@ -895,7 +1019,10 @@ export default function DelivererInterface() {
                         <div className="flex gap-2">
                           <Button
                             size="sm"
-                            onClick={() => handleAcceptOrder(order.id)}
+                            onClick={() => {
+                              console.log('🎯 Clicking accept for order:', order);
+                              handleAcceptOrder(order.id);
+                            }}
                             disabled={!isSessionActive}
                             title={!isSessionActive ? 'Démarrer la session pour accepter des commandes' : undefined}
                             className="flex-1"

@@ -357,7 +357,7 @@ export default function Deliverers() {
                       phone: e.target.value,
                     }))
                   }
-                  placeholder="Ex: +216 23 456 789"
+                  placeholder="Ex: 28653000 ou +21628653000"
                 />
               </div>
               <div className="grid gap-2">
