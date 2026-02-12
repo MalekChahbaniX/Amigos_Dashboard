@@ -38,7 +38,7 @@ interface Order {
   address: string;
   total: string;
   solde?: string;
-  status: "pending" | "confirmed" | "preparing" | "in_delivery" | "delivered" | "cancelled";
+  status: "pending" | "accepted" | "preparing" | "collected" | "in_delivery" | "delivered" | "cancelled";
   date: string;
   createdAt?: string;
   deliverer?: string | null;
@@ -74,10 +74,34 @@ export default function Orders() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [deliverers, setDeliverers] = useState<Array<{id: string, name: string, phone: string, vehicle?: string, currentOrders?: number, totalDeliveries?: number, totalSolde?: number, rating?: number, isActive?: boolean, location?: string}>>([]);
+  const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const [selectedDeliverer, setSelectedDeliverer] = useState<string>('');
 
   const { user } = useAuthContext();
   const { isConnected, newOrders, connectSocket, disconnectSocket } = useAdminWebSocket();
   const hasConnectedRef = useRef(false);
+
+  // Check if user can manage orders based on role
+  const canManageOrders = user?.role === 'admin' || user?.role === 'superAdmin' || user?.role === 'provider' || user?.role === 'deliverer';
+
+  // Check if user can update status (different permissions per role)
+  const canUpdateStatus = user?.role === 'admin' || user?.role === 'superAdmin' || 
+    (user?.role === 'provider' && ['pending', 'accepted'].includes(selectedOrder?.status || '')) ||
+    (user?.role === 'deliverer' && ['preparing', 'collected'].includes(selectedOrder?.status || ''));
+
+  // Check if user can assign deliverer (only admin/superAdmin and only for pending orders)
+  const canAssignDeliverer = (user?.role === 'admin' || user?.role === 'superAdmin') && selectedOrder?.status === 'pending';
+
+  // Fetch deliverers list
+  const fetchDeliverers = async () => {
+    try {
+      const response = await apiService.getDeliverers();
+      setDeliverers(response.deliverers || []);
+    } catch (error) {
+      console.error('Error fetching deliverers:', error);
+    }
+  };
 
   const fetchOrders = async (page = 1, typeParam?: OrderType) => {
     try {
@@ -124,6 +148,9 @@ export default function Orders() {
 
   useEffect(() => {
     fetchOrders(1, typeFilter !== 'all' ? (typeFilter as OrderType) : undefined);
+    if (canManageOrders) {
+      fetchDeliverers();
+    }
   }, [searchQuery, statusFilter, typeFilter]);
 
   // WebSocket connection effect
@@ -156,16 +183,16 @@ export default function Orders() {
   const visibleOrders = orders;
 
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
-    try {
-      const response = await fetch(`/api/dashboard/orders/${orderId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
+    // Prevent status changes for cancelled orders
+    const order = orders.find(o => o.id === orderId);
+    if (order?.status === 'cancelled') {
+      console.warn('Cannot change status of cancelled order');
+      return;
+    }
 
-      if (response.ok) {
+    try {
+      const response = await apiService.updateDashboardOrderStatus(orderId, newStatus);
+      if (response) {
         fetchOrders(currentPage, typeFilter !== 'all' ? (typeFilter as OrderType) : undefined);
         setSelectedOrder(null);
       }
@@ -176,21 +203,23 @@ export default function Orders() {
 
   const handleAssignDeliverer = async (orderId: string, delivererId: string) => {
     try {
-      const response = await fetch(`/api/dashboard/orders/${orderId}/assign-deliverer`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ delivererId }),
-      });
-
-      if (response.ok) {
+      // Convert 'none' back to null for the API
+      const actualDelivererId = delivererId === 'none' ? null : delivererId;
+      
+      const response = await apiService.assignDeliverer(orderId, actualDelivererId);
+      if (response) {
         fetchOrders(currentPage, typeFilter !== 'all' ? (typeFilter as OrderType) : undefined);
         setSelectedOrder(null);
       }
     } catch (error) {
       console.error('Error assigning deliverer:', error);
     }
+  };
+
+  const handleOrderSelect = (order: Order) => {
+    setSelectedOrder(order);
+    setSelectedStatus(order.status);
+    setSelectedDeliverer(order.deliverer || 'none');
   };
 
   if (loading) {
@@ -319,7 +348,7 @@ export default function Orders() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => setSelectedOrder(order)}
+                      onClick={() => handleOrderSelect(order)}
                       className="h-8 w-8 xs:h-9 xs:w-9 sm:h-10 sm:w-10 flex-shrink-0 touch-manipulation"
                       data-testid={`button-view-${order.id}`}
                     >
@@ -397,6 +426,76 @@ export default function Orders() {
                 </div>
               </div>
 
+              {/* Status and Deliverer Management - Based on user role */}
+              {canManageOrders && selectedOrder.status !== 'cancelled' && (
+                <div className="space-y-4 xs:space-y-6 pt-4 xs:pt-6 border-t">
+                  <div className="grid grid-cols-1 xs:grid-cols-2 gap-4 xs:gap-6">
+                    {/* Status Update */}
+                    {canUpdateStatus && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-muted-foreground">Mettre à jour le statut</label>
+                        <Select
+                          value={selectedStatus}
+                          onValueChange={setSelectedStatus}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner un statut" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {/* Show different status options based on user role */}
+                            {user?.role === 'admin' || user?.role === 'superAdmin' ? (
+                              <>
+                                <SelectItem value="pending">En attente</SelectItem>
+                                <SelectItem value="accepted">Accepté</SelectItem>
+                                <SelectItem value="preparing">En préparation</SelectItem>
+                                <SelectItem value="collected">Collecté</SelectItem>
+                                <SelectItem value="in_delivery">En livraison</SelectItem>
+                                <SelectItem value="delivered">Livré</SelectItem>
+                                <SelectItem value="cancelled">Annulé</SelectItem>
+                              </>
+                            ) : user?.role === 'provider' ? (
+                              <>
+                                <SelectItem value="accepted">Accepté</SelectItem>
+                                <SelectItem value="preparing">En préparation</SelectItem>
+                              </>
+                            ) : user?.role === 'deliverer' ? (
+                              <>
+                                <SelectItem value="collected">Collecté</SelectItem>
+                                <SelectItem value="in_delivery">En livraison</SelectItem>
+                                <SelectItem value="delivered">Livré</SelectItem>
+                              </>
+                            ) : null}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {/* Deliverer Assignment - Only admin/superAdmin */}
+                    {canAssignDeliverer && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-muted-foreground">Assigner un livreur</label>
+                        <Select
+                          value={selectedDeliverer}
+                          onValueChange={setSelectedDeliverer}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner un livreur" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Non assigné</SelectItem>
+                            {deliverers.map((deliverer) => (
+                              <SelectItem key={deliverer.id} value={deliverer.id}>
+                                {deliverer.name} {deliverer.vehicle && `(${deliverer.vehicle})`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2 xs:space-y-3">
                 <p className="text-sm xs:text-base text-muted-foreground font-medium">Articles commandés</p>
                 <div className="space-y-2 xs:space-y-3">
@@ -454,14 +553,31 @@ export default function Orders() {
                 )}
               </div>
 
-              <div className="flex flex-col xs:flex-row gap-2 xs:gap-3 pt-4 xs:pt-6">
-                <Button className="flex-1 min-h-[44px] xs:min-h-[40px] text-sm xs:text-base touch-manipulation" data-testid="button-update-status">
-                  Mettre à jour le statut
-                </Button>
-                <Button variant="outline" className="flex-1 xs:flex-none xs:w-auto min-h-[44px] xs:min-h-[40px] text-sm xs:text-base touch-manipulation" data-testid="button-assign-deliverer">
-                  Assigner un livreur
-                </Button>
-              </div>
+              {canManageOrders && selectedOrder.status !== 'cancelled' && (
+                <div className="flex flex-col xs:flex-row gap-2 xs:gap-3 pt-4 xs:pt-6">
+                  {canUpdateStatus && (
+                    <Button 
+                      className="flex-1 min-h-[44px] xs:min-h-[40px] text-sm xs:text-base touch-manipulation" 
+                      data-testid="button-update-status"
+                      onClick={() => handleStatusUpdate(selectedOrder.id, selectedStatus)}
+                      disabled={selectedStatus === selectedOrder.status}
+                    >
+                      Mettre à jour le statut
+                    </Button>
+                  )}
+                  {canAssignDeliverer && (
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 xs:flex-none xs:w-auto min-h-[44px] xs:min-h-[40px] text-sm xs:text-base touch-manipulation" 
+                      data-testid="button-assign-deliverer"
+                      onClick={() => handleAssignDeliverer(selectedOrder.id, selectedDeliverer)}
+                      disabled={selectedDeliverer === (selectedOrder.deliverer || 'none')}
+                    >
+                      Assigner un livreur
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

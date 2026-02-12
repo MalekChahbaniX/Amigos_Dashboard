@@ -258,7 +258,24 @@ class ApiService {
     orders: number;
     status: string;
   }>> {
-    return this.request('/dashboard/active-deliverers');
+    try {
+      const deliverers = await this.request<Array<{
+        id: string;
+        name: string;
+        phone: string;
+        location: any;
+        status: string;
+      }>>('/dashboard/active-deliverers');
+      
+      // Add mock orders count for now - this should come from the backend
+      return deliverers.map(deliverer => ({
+        ...deliverer,
+        orders: Math.floor(Math.random() * 5) + 1 // Temporary mock data
+      }));
+    } catch (error) {
+      console.error('Error fetching active deliverers:', error);
+      return [];
+    }
   }
 
   // Authentication methods
@@ -2210,6 +2227,28 @@ async deleteProductOption(id: string): Promise<{
     return this.request(`/deliverer/orders/${orderId}/status`, {
       method: 'PUT',
       body: JSON.stringify(body),
+    });
+  }
+
+  async updateDashboardOrderStatus(orderId: string, status: string): Promise<{
+    success: boolean;
+    message: string;
+    order?: any;
+  }> {
+    return this.request(`/dashboard/orders/${orderId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async assignDeliverer(orderId: string, delivererId: string | null): Promise<{
+    success: boolean;
+    message: string;
+    order?: any;
+  }> {
+    return this.request(`/dashboard/orders/${orderId}/assign-deliverer`, {
+      method: 'PUT',
+      body: JSON.stringify({ delivererId }),
     });
   }
 

@@ -7,6 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -65,6 +72,7 @@ export default function Deliverers() {
   const [revealedCodes, setRevealedCodes] = useState<Record<string, boolean>>({});
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [createdDelivererCode, setCreatedDelivererCode] = useState<string | null>(null);
+  const [cities, setCities] = useState<Array<{id: string; name: string}>>([]);
   const [createForm, setCreateForm] = useState<CreateDelivererForm>({
     name: "",
     phone: "",
@@ -117,6 +125,7 @@ export default function Deliverers() {
 
   useEffect(() => {
     fetchDeliverers(1);
+    fetchCities();
   }, [searchQuery]);
 
   // Derived filtered list combining search + session filter
@@ -142,6 +151,20 @@ export default function Deliverers() {
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour le statut du livreur",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchCities = async () => {
+    try {
+      const response = await apiService.getCities();
+      setCities(response.cities);
+    } catch (error) {
+      console.error('Error fetching cities:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les villes",
         variant: "destructive",
       });
     }
@@ -376,17 +399,26 @@ export default function Deliverers() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="deliverer-location">Localisation *</Label>
-                <Input
-                  id="deliverer-location"
+                <Select
                   value={createForm.location}
-                  onChange={(e) =>
+                  onValueChange={(value) =>
                     setCreateForm((prev) => ({
                       ...prev,
-                      location: e.target.value,
+                      location: value,
                     }))
                   }
-                  placeholder="Ex: Centre Ville, Tunis"
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner une ville" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cities.map((city) => (
+                      <SelectItem key={city.id} value={city.name}>
+                        {city.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             {createdDelivererCode && (

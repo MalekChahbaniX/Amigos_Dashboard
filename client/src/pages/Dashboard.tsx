@@ -55,9 +55,18 @@ export default function Dashboard() {
     const fetchDashboardData = async () => {
       try {
         const [statsData, ordersData, deliverersData] = await Promise.all([
-          apiService.getDashboardStats(),
-          apiService.getRecentOrders(),
-          apiService.getActiveDeliverers()
+          apiService.getDashboardStats().catch(error => {
+            console.error('Error fetching dashboard stats:', error);
+            return null;
+          }),
+          apiService.getRecentOrders().catch(error => {
+            console.error('Error fetching recent orders:', error);
+            return [];
+          }),
+          apiService.getActiveDeliverers().catch(error => {
+            console.error('Error fetching active deliverers:', error);
+            return [];
+          })
         ]);
 
         setStats(statsData);
@@ -65,15 +74,18 @@ export default function Dashboard() {
         setActiveDeliverers(deliverersData);
       } catch (error: any) {
         console.error('Error fetching dashboard data:', error);
-        // Don't show error if it's a permission issue - just leave data empty
-        // This happens when a regular admin doesn't have access to global stats
+        toast({
+          title: "Erreur de chargement",
+          description: "Impossible de charger certaines données du dashboard",
+          variant: "destructive"
+        });
       } finally {
         setLoading(false);
       }
     };
 
     fetchDashboardData();
-  }, []);
+  }, [toast]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);

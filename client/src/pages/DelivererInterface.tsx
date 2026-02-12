@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useDelivererWebSocket } from "@/hooks/useDelivererWebSocket";
 import { useAuth } from "@/hooks/useAuth";
 import { apiService } from "@/lib/api";
+import ClientLocationMap from "@/components/ClientLocationMap";
 
 interface OrderNotification {
   orderId: string;
@@ -74,6 +75,7 @@ interface DelivererOrder {
   finalAmount: number;
   createdAt: string;
   platformSolde: number;
+  restaurantPayout?: number; // Add deliverer payout field
   isGrouped?: boolean;
   groupedOrders?: any[];
   providerPaymentMode?: string | any[];
@@ -298,6 +300,7 @@ export default function DelivererInterface() {
           finalAmount: order.finalAmount,
           createdAt: order.createdAt,
           platformSolde: order.platformSolde,
+          restaurantPayout: order.restaurantPayout, // Add deliverer payout display
           distance: order.distance,
           zone: order.zone,
           groupSize: (order as any).groupSize,
@@ -363,8 +366,8 @@ export default function DelivererInterface() {
       setAssignedOrders(assignedOrdersData.orders || []);
       setDelivererProfile(profileData.profile);
       setEarnings(earningsData.earnings || earningsData);
-      setStatistics(statisticsData);
-      
+      setStatistics(statisticsData.statistics || statisticsData);
+           
       // WebSocket connection
       const delivererId = profileData.profile?.id;
       if (delivererId) {
@@ -510,6 +513,11 @@ export default function DelivererInterface() {
   };
 
   const getOrderSolde = (order: DelivererOrder) => {
+    // Priorité au payout livreur (restaurantPayout) si disponible
+    if (typeof order.restaurantPayout === 'number') {
+      return `${order.restaurantPayout.toFixed(3)} DT`;
+    }
+    
     const t = (order.orderType || (order as any).type || '').toString();
     if (t === 'A1' && typeof order.soldeSimple === 'number') return `${order.soldeSimple} DT`;
     if (t === 'A2' && typeof order.soldeDual === 'number') return `${order.soldeDual} DT`;
@@ -972,7 +980,21 @@ export default function DelivererInterface() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {availableOrders.length > 0 ? availableOrders.map((order) => (
+                    {availableOrders.length > 0 ? availableOrders.map((order) => {
+                      // Debug logging pour la localisation
+                      console.log('📍 Commande disponible - Données complètes:', {
+                        orderId: order.id,
+                        clientName: order.client.name,
+                        clientLocation: order.client.location,
+                        deliveryAddress: order.deliveryAddress,
+                        finalLocation: {
+                          lat: order.client.location?.lat || order.client.location?.latitude,
+                          lng: order.client.location?.lng || order.client.location?.longitude,
+                          address: order.deliveryAddress?.street ? `${order.deliveryAddress?.street}, ${order.deliveryAddress?.city}` : order.deliveryAddress?.address
+                        }
+                      });
+                      
+                      return (
                       <div key={order.id} className="border rounded-lg p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -1016,6 +1038,20 @@ export default function DelivererInterface() {
                           </div>
                         </div>
 
+                        {/* Client Location Map */}
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium text-gray-700">Localisation du client:</div>
+                          <ClientLocationMap 
+                            clientLocation={{
+                              lat: order.client.location?.lat || order.client.location?.latitude,
+                              lng: order.client.location?.lng || order.client.location?.longitude,
+                              address: order.deliveryAddress?.street ? `${order.deliveryAddress?.street}, ${order.deliveryAddress?.city}` : order.deliveryAddress?.address
+                            }}
+                            clientName={order.client.name}
+                            className="h-48 w-full"
+                          />
+                        </div>
+
                         <div className="flex gap-2">
                           <Button
                             size="sm"
@@ -1039,7 +1075,8 @@ export default function DelivererInterface() {
                           </Button>
                         </div>
                       </div>
-                    )) : (
+                      );
+                    }) : (
                       <div className="text-center py-8 text-muted-foreground">
                         Aucune commande disponible pour le moment
                       </div>
@@ -1058,7 +1095,21 @@ export default function DelivererInterface() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {assignedOrders.length > 0 ? assignedOrders.map((order) => (
+                    {assignedOrders.length > 0 ? assignedOrders.map((order) => {
+                      // Debug logging pour la localisation
+                      console.log('📍 Commande assignée - Données complètes:', {
+                        orderId: order.id,
+                        clientName: order.client.name,
+                        clientLocation: order.client.location,
+                        deliveryAddress: order.deliveryAddress,
+                        finalLocation: {
+                          lat: order.client.location?.lat || order.client.location?.latitude,
+                          lng: order.client.location?.lng || order.client.location?.longitude,
+                          address: order.deliveryAddress?.street ? `${order.deliveryAddress?.street}, ${order.deliveryAddress?.city}` : order.deliveryAddress?.address
+                        }
+                      });
+                      
+                      return (
                       <div key={order.id} className="border rounded-lg p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -1105,6 +1156,20 @@ export default function DelivererInterface() {
                           </div>
                         </div>
 
+                        {/* Client Location Map */}
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium text-gray-700">Localisation du client:</div>
+                          <ClientLocationMap 
+                            clientLocation={{
+                              lat: order.client.location?.lat || order.client.location?.latitude,
+                              lng: order.client.location?.lng || order.client.location?.longitude,
+                              address: order.deliveryAddress?.street ? `${order.deliveryAddress?.street}, ${order.deliveryAddress?.city}` : order.deliveryAddress?.address
+                            }}
+                            clientName={order.client.name}
+                            className="h-48 w-full"
+                          />
+                        </div>
+
                         {order.status === 'accepted' && (
                           <Button
                             size="sm"
@@ -1148,7 +1213,8 @@ export default function DelivererInterface() {
                           </div>
                         )}
                       </div>
-                    )) : (
+                      );
+                    }) : (
                       <div className="text-center py-8 text-muted-foreground">
                         Aucune commande assignée pour le moment
                       </div>

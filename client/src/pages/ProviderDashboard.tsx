@@ -28,6 +28,9 @@ interface ProviderOrderDetail {
   deliveryDriver: string | null;
   createdAt: string;
   date: string;
+  // Add defensive properties to prevent undefined errors
+  totalAmountStr?: string;
+  restaurantPayoutStr?: string;
 }
 
 interface OrderStats {
@@ -98,6 +101,7 @@ export default function ProviderDashboard() {
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<ProviderOrderDetail | null>(null);
+  const [orderDetailsModalOpen, setOrderDetailsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchProviderData();
@@ -163,12 +167,26 @@ export default function ProviderDashboard() {
       const result = await apiService.updateProviderOrderStatus(orderId, status);
       
       if (result.success) {
-        // Refresh orders
-        fetchOrders(orderStatusFilter);
+        // Refresh orders and stats
+        await Promise.all([
+          fetchOrders(orderStatusFilter),
+          fetchOrderStats() // Refresh stats to update cancelled count
+        ]);
         setSelectedOrder(null);
       }
     } catch (error) {
       console.error('Error updating order status:', error);
+    }
+  };
+
+  const fetchOrderStats = async () => {
+    try {
+      const statsRes = await apiService.getProviderOrderStats();
+      if (statsRes.success && statsRes.stats) {
+        setOrderStats(statsRes.stats);
+      }
+    } catch (error) {
+      console.error('Error fetching order stats:', error);
     }
   };
 
@@ -557,9 +575,9 @@ export default function ProviderDashboard() {
                             <p className="text-xs text-muted-foreground">{order.date}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-lg font-bold">{order.totalAmount.toFixed(3)} DT</p>
+                            <p className="text-lg font-bold">{(typeof order.totalAmount === 'number' ? order.totalAmount.toFixed(3) : '0.000')} DT</p>
                             <p className="text-sm text-muted-foreground">
-                              Payout: {order.restaurantPayout.toFixed(3)} DT
+                              Payout: {(typeof order.restaurantPayout === 'number' ? order.restaurantPayout.toFixed(3) : '0.000')} DT
                             </p>
                           </div>
                         </div>
@@ -572,7 +590,7 @@ export default function ProviderDashboard() {
                                 <span className="text-muted-foreground">
                                   {item.name} x{item.quantity}
                                 </span>
-                                <span className="font-medium">{item.price.toFixed(3)} DT</span>
+                                <span className="font-medium">{(typeof item.price === 'number' ? item.price.toFixed(3) : '0.000')} DT</span>
                               </div>
                             ))}
                           </div>
@@ -598,17 +616,19 @@ export default function ProviderDashboard() {
                           </div>
                         )}
 
-                        {order.status === 'preparing' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setSelectedOrder(order)}
-                            className="w-full"
-                          >
-                            <Eye className="w-4 h-4 mr-2" />
-                            Voir les détails
-                          </Button>
-                        )}
+                        {/* Order Details - Always visible */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedOrder(order);
+                            setOrderDetailsModalOpen(true);
+                          }}
+                          className="w-full mt-2"
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          Voir les détails
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -682,6 +702,103 @@ export default function ProviderDashboard() {
             </Card>
           </div>
         )}
+        
+        {/* Order Details Modal */}
+        {orderDetailsModalOpen && selectedOrder && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle>Détails de la commande {selectedOrder.orderNumber}</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setOrderDetailsModalOpen(false);
+                      setSelectedOrder(null);
+                    }}
+                  >
+                    ✕
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3">Informations client</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Nom:</span>
+                        <span className="font-medium">{selectedOrder.client}</span>
+                      </div>
+                      {selectedOrder.phone && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Téléphone:</span>
+                          <span className="font-medium">{selectedOrder.phone}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3">Informations livraison</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Statut:</span>
+                        <Badge variant={
+                          selectedOrder.status === 'pending' ? 'secondary' :
+                          selectedOrder.status === 'preparing' ? 'default' :
+                          selectedOrder.status === 'delivered' ? 'outline' : 'destructive'
+                        }>
+                          {selectedOrder.status === 'pending' ? 'En attente' :
+                           selectedOrder.status === 'preparing' ? 'En préparation' :
+                           selectedOrder.status === 'delivered' ? 'Livrée' : 'Annulée'}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Montant total:</span>
+                        <span className="font-medium">{(typeof selectedOrder.totalAmount === 'number' ? selectedOrder.totalAmount.toFixed(3) : '0.000')} DT</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Payout restaurant:</span>
+                        <span className="font-medium">{(typeof selectedOrder.restaurantPayout === 'number' ? selectedOrder.restaurantPayout.toFixed(3) : '0.000')} DT</span>
+                      </div>
+                      {selectedOrder.deliveryDriver && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Livreur:</span>
+                          <span className="font-medium">{selectedOrder.deliveryDriver}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                  
+                  <div>
+                  <h3 className="text-lg font-semibold mb-3">Articles commandés</h3>
+                  <div className="bg-muted/50 rounded p-4">
+                    <div className="space-y-2">
+                      {selectedOrder.items.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center py-2 border-b last:border-b-0">
+                          <div className="flex-1">
+                            <span className="font-medium">{item.name}</span>
+                            <span className="text-muted-foreground ml-2">x{item.quantity}</span>
+                          </div>
+                          <span className="font-medium">{(typeof item.price === 'number' ? item.price.toFixed(3) : '0.000')} DT</span>
+                        </div>
+                      ))}
+                      <div className="mt-4 pt-4 border-t">
+                        <div className="flex justify-between items-center">
+                          <span className="text-lg font-semibold">Total:</span>
+                          <span className="text-lg font-bold">{(typeof selectedOrder.totalAmount === 'number' ? selectedOrder.totalAmount.toFixed(3) : '0.000')} DT</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )};
       </div>
     </div>
   );

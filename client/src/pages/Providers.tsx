@@ -94,7 +94,29 @@ interface Provider {
   }>;
 }
 
-function LocationPicker({ position, onLocationSelect }: { position: [number, number] | null, onLocationSelect: (lat: number, lng: number) => void }) {
+// Fonction de géocodage inverse pour convertir les coordonnées en adresse
+const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
+  try {
+    console.log('🗺️ Géocodage inverse des coordonnées:', lat, lng);
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&countrycodes=tn`
+    );
+    const data = await response.json();
+    
+    if (data && data.display_name) {
+      console.log('🗺️ Adresse trouvée:', data.display_name);
+      return data.display_name;
+    } else {
+      console.warn('🗺️ Aucune adresse trouvée pour les coordonnées:', lat, lng);
+      return '';
+    }
+  } catch (error) {
+    console.error('🗺️ Erreur lors du géocodage inverse:', error);
+    return '';
+  }
+};
+
+function LocationPicker({ position, onLocationSelect }: { position: [number, number] | null, onLocationSelect: (lat: number, lng: number, address?: string) => void }) {
   const map = useMapEvents({
     click(e) {
       onLocationSelect(e.latlng.lat, e.latlng.lng);
@@ -589,7 +611,13 @@ export default function Providers() {
                 <div className="h-[200px] w-full rounded-md border overflow-hidden relative z-0">
                    <MapContainer center={[createForm.latitude, createForm.longitude]} zoom={13} style={{ height: '100%', width: '100%' }}>
                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                        <LocationPicker position={[createForm.latitude, createForm.longitude]} onLocationSelect={(lat, lng) => { setCreateForm(prev => ({ ...prev, latitude: lat, longitude: lng })); }} />
+                        <LocationPicker position={[createForm.latitude, createForm.longitude]} onLocationSelect={async (lat, lng) => { 
+                          setCreateForm(prev => ({ ...prev, latitude: lat, longitude: lng })); 
+                          const address = await reverseGeocode(lat, lng);
+                          if (address) {
+                            setCreateForm(prev => ({ ...prev, address }));
+                          }
+                        }} />
                     </MapContainer>
                 </div>
               </div>
@@ -992,7 +1020,13 @@ export default function Providers() {
                 <div className="h-[200px] w-full rounded-md border overflow-hidden relative z-0">
                    <MapContainer center={[editForm.latitude, editForm.longitude]} zoom={13} style={{ height: '100%', width: '100%' }}>
                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                        <LocationPicker position={[editForm.latitude, editForm.longitude]} onLocationSelect={(lat, lng) => { setEditForm(prev => ({ ...prev, latitude: lat, longitude: lng })); }} />
+                        <LocationPicker position={[editForm.latitude, editForm.longitude]} onLocationSelect={async (lat, lng) => { 
+                          setEditForm(prev => ({ ...prev, latitude: lat, longitude: lng })); 
+                          const address = await reverseGeocode(lat, lng);
+                          if (address) {
+                            setEditForm(prev => ({ ...prev, address }));
+                          }
+                        }} />
                     </MapContainer>
                 </div>
             </div>
