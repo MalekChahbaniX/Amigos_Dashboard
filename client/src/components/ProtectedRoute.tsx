@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { useLocation } from 'wouter';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -12,7 +12,7 @@ export const ProtectedRoute = ({
   requiredRoles = [],
 }: ProtectedRouteProps) => {
   const [, setLocation] = useLocation();
-  const { user, isLoading } = useAuth();
+  const { user, isLoading } = useAuthContext();
 
   // Loading state
   if (isLoading) {
@@ -33,7 +33,7 @@ export const ProtectedRoute = ({
   }
 
   // Check required roles
-  if (requiredRoles.length > 0 && !requiredRoles.includes(user.role)) {
+  if (requiredRoles.length > 0 && !requiredRoles.includes(user.role as 'superAdmin' | 'admin' | 'deliverer' | 'provider')) {
     setLocation('/login');
     return null;
   }

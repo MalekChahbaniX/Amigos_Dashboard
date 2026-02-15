@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,14 +53,27 @@ const roleConfigs: Record<LoginRole, RoleConfig> = {
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { login } = useAuthContext();
+  const { login, user, isLoading } = useAuthContext();
 
   const [currentRole, setCurrentRole] = useState<LoginRole>("superadmin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [securityCode, setSecurityCode] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Redirect authenticated users to appropriate dashboard
+  useEffect(() => {
+    if (!isLoading && user) {
+      if (user.role === 'deliverer') {
+        setLocation('/deliverer-interface');
+      } else if (user.role === 'provider') {
+        setLocation('/provider-dashboard');
+      } else {
+        setLocation('/dashboard');
+      }
+    }
+  }, [user, isLoading, setLocation]);
 
   const config = roleConfigs[currentRole];
   const isEmailField = config.fields === "email";
@@ -104,7 +117,7 @@ export default function Login() {
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     try {
       let response;
@@ -202,7 +215,7 @@ export default function Login() {
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -294,7 +307,7 @@ export default function Login() {
                       placeholder="votre.email@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      disabled={isLoading}
+                      disabled={isSubmitting}
                       className="h-11 text-base"
                       required
                     />
@@ -309,7 +322,7 @@ export default function Login() {
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      disabled={isLoading}
+                      disabled={isSubmitting}
                       className="h-11 text-base"
                       required
                     />
@@ -334,7 +347,7 @@ export default function Login() {
                           const cleaned = e.target.value.replace(/\D/g, "");
                           setPhoneNumber(cleaned.slice(0, 8));
                         }}
-                        disabled={isLoading}
+                        disabled={isSubmitting}
                         className="h-11 text-base"
                         maxLength={8}
                         required
@@ -359,7 +372,7 @@ export default function Login() {
                         setSecurityCode(cleaned.slice(0, 6));
                       }}
                       maxLength={6}
-                      disabled={isLoading}
+                      disabled={isSubmitting}
                       className="h-11 text-base font-mono tracking-widest text-center"
                       required
                       aria-label="Code de sécurité à 6 chiffres"
@@ -382,7 +395,7 @@ export default function Login() {
 
               <Button
                 type="submit"
-                disabled={isLoading}
+                disabled={isSubmitting}
                 className={`w-full h-12 text-base font-semibold mt-8 ${
                   config.color === "purple"
                     ? "bg-purple-600 hover:bg-purple-700"
@@ -393,7 +406,7 @@ export default function Login() {
                         : "bg-amber-600 hover:bg-amber-700"
                 }`}
               >
-                {isLoading ? (
+                {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Connexion en cours...

@@ -121,7 +121,7 @@ export default function Products() {
     imageFile: undefined,
     imageType: "url",
     providerId: "",
-    csR: 5,
+    csR: 0,
     csC: 0,
     deliveryCategory: "restaurant",
     availability: true,
@@ -142,7 +142,7 @@ export default function Products() {
     imageFile: undefined,
     imageType: "url",
     providerId: "",
-    csR: 5,
+    csR: 0,
     csC: 0,
     deliveryCategory: "restaurant",
     availability: true,
@@ -344,7 +344,7 @@ export default function Products() {
       imageFile: undefined,
       imageType: "url",
       providerId: "",
-      csR: 5,
+      csR: 0,
       csC: 0,
       deliveryCategory: "restaurant",
       availability: true,
@@ -1907,7 +1907,7 @@ export default function Products() {
                             </div>
                             {/* Variant Rows */}
                             {product.variants.map((variant, index) => {
-                              const csR = variant.csR ?? product.csR ?? 5;
+                              const csR = variant.csR ?? product.csR ?? 0;
                               const csC = variant.csC ?? product.csC ?? 0;
                               const price = Number(variant.price);
                               const p1 =

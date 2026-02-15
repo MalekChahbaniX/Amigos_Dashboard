@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AuthProvider } from "@/context/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Orders from "@/pages/Orders";
@@ -56,93 +57,129 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={() => <Redirect to="/login" />} />
+      <Route path="/" component={() => <Redirect to="/dashboard" />} />
       <Route path="/login" component={Login} />
       <Route path="/dashboard">
-        <DashboardLayout>
-          <Dashboard />
-        </DashboardLayout>
+        <ProtectedRoute requiredRoles={['superAdmin', 'admin']}>
+          <DashboardLayout>
+            <Dashboard />
+          </DashboardLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/orders">
-        <DashboardLayout>
-          <Orders />
-        </DashboardLayout>
+        <ProtectedRoute requiredRoles={['superAdmin', 'admin']}>
+          <DashboardLayout>
+            <Orders />
+          </DashboardLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/clients">
-        <DashboardLayout>
-          <Clients />
-        </DashboardLayout>
+        <ProtectedRoute requiredRoles={['superAdmin', 'admin']}>
+          <DashboardLayout>
+            <Clients />
+          </DashboardLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/deliverers">
-        <DashboardLayout>
-          <Deliverers />
-        </DashboardLayout>
+        <ProtectedRoute requiredRoles={['superAdmin', 'admin']}>
+          <DashboardLayout>
+            <Deliverers />
+          </DashboardLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/create-admin">
-        <DashboardLayout>
-          <CreateAdmin />
-        </DashboardLayout>
+        <ProtectedRoute requiredRoles={['superAdmin']}>
+          <DashboardLayout>
+            <CreateAdmin />
+          </DashboardLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/deliverer-sessions">
-        <DashboardLayout>
-          <DelivererSessions />
-        </DashboardLayout>
+        <ProtectedRoute requiredRoles={['superAdmin', 'admin']}>
+          <DashboardLayout>
+            <DelivererSessions />
+          </DashboardLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/providers">
-        <DashboardLayout>
-          <Providers />
-        </DashboardLayout>
+        <ProtectedRoute requiredRoles={['superAdmin', 'admin']}>
+          <DashboardLayout>
+            <Providers />
+          </DashboardLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/OptionGroups">
-        <DashboardLayout>
-          <OptionGroupsPage />
-        </DashboardLayout>
+        <ProtectedRoute requiredRoles={['superAdmin', 'admin']}>
+          <DashboardLayout>
+            <OptionGroupsPage />
+          </DashboardLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/AllOptions">
-        <DashboardLayout>
-          <AllOptionsPage />
-        </DashboardLayout>
+        <ProtectedRoute requiredRoles={['superAdmin', 'admin']}>
+          <DashboardLayout>
+            <AllOptionsPage />
+          </DashboardLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/products">
-        <DashboardLayout>
-          <Products />
-        </DashboardLayout>
+        <ProtectedRoute requiredRoles={['superAdmin', 'admin']}>
+          <DashboardLayout>
+            <Products />
+          </DashboardLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/analytics">
-        <DashboardLayout>
-          <Analytics />
-        </DashboardLayout>
+        <ProtectedRoute requiredRoles={['superAdmin', 'admin']}>
+          <DashboardLayout>
+            <Analytics />
+          </DashboardLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/settings">
-        <DashboardLayout>
-          <Settings />
-        </DashboardLayout>
+        <ProtectedRoute requiredRoles={['superAdmin', 'admin']}>
+          <DashboardLayout>
+            <Settings />
+          </DashboardLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/zones">
-        <DashboardLayout>
-          <Zones />
-        </DashboardLayout>
+        <ProtectedRoute requiredRoles={['superAdmin', 'admin']}>
+          <DashboardLayout>
+            <Zones />
+          </DashboardLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/promotions">
-        <DashboardLayout>
-          <Promotions />
-        </DashboardLayout>
+        <ProtectedRoute requiredRoles={['superAdmin', 'admin']}>
+          <DashboardLayout>
+            <Promotions />
+          </DashboardLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/cash-management">
-        <DashboardLayout>
-          <CashManagement />
-        </DashboardLayout>
+        <ProtectedRoute requiredRoles={['superAdmin', 'admin']}>
+          <DashboardLayout>
+            <CashManagement />
+          </DashboardLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/configuration">
-        <DashboardLayout>
-          <Configuration />
-        </DashboardLayout>
+        <ProtectedRoute requiredRoles={['superAdmin']}>
+          <DashboardLayout>
+            <Configuration />
+          </DashboardLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/deliverer-interface">
-        <DelivererInterface />
+        <ProtectedRoute requiredRoles={['deliverer']}>
+          <DelivererInterface />
+        </ProtectedRoute>
       </Route>
       <Route path="/provider-dashboard">
-        <ProviderDashboard />
+        <ProtectedRoute requiredRoles={['provider']}>
+          <ProviderDashboard />
+        </ProtectedRoute>
       </Route>
       <Route component={NotFound} />
     </Switch>
