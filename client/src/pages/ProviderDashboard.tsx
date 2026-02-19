@@ -17,12 +17,14 @@ interface ProviderOrderDetail {
   client: string;
   phone?: string;
   status: 'pending' | 'preparing' | 'accepted' | 'collected' | 'in_delivery' | 'delivered' | 'cancelled';
-  totalAmount: number;
-  restaurantPayout: number;
+  totalAmount: number; // Calculé avec p2
+  restaurantPayout: number; // Calculé avec p1
   items: Array<{
     name: string;
     quantity: number;
-    price: number;
+    price?: number;
+    p1?: number;
+    p2?: number;
   }>;
   deliveryAddress: any;
   deliveryDriver: string | null;
@@ -46,7 +48,7 @@ interface ProviderDailyBalance {
   date: string;
   orders: ProviderOrder[];
   totalPayout: number;
-  paymentMode: 'especes' | 'facture' | 'virement';
+  paymentMode: 'especes' | 'facture';
   paid: boolean;
   paidAt: string | null;
   orderCount: number;
@@ -92,7 +94,7 @@ export default function ProviderDashboard() {
   // Payment modal state
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedBalance, setSelectedBalance] = useState<ProviderDailyBalance | null>(null);
-  const [paymentMode, setPaymentMode] = useState<'especes' | 'facture' | 'virement'>('especes');
+  const [paymentMode, setPaymentMode] = useState<'especes' | 'facture'>('especes');
   const [processingPayment, setProcessingPayment] = useState(false);
 
   // Orders state
@@ -575,9 +577,9 @@ export default function ProviderDashboard() {
                             <p className="text-xs text-muted-foreground">{order.date}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-lg font-bold">{(typeof order.totalAmount === 'number' ? order.totalAmount.toFixed(3) : '0.000')} DT</p>
+                            <p className="text-lg font-bold">{(typeof order.totalAmount === 'number' ? order.totalAmount.toFixed(3) : '0.000')} TND</p>
                             <p className="text-sm text-muted-foreground">
-                              Payout: {(typeof order.restaurantPayout === 'number' ? order.restaurantPayout.toFixed(3) : '0.000')} DT
+                              Payout: {(typeof order.restaurantPayout === 'number' ? order.restaurantPayout.toFixed(3) : '0.000')} TND
                             </p>
                           </div>
                         </div>
@@ -590,7 +592,7 @@ export default function ProviderDashboard() {
                                 <span className="text-muted-foreground">
                                   {item.name} x{item.quantity}
                                 </span>
-                                <span className="font-medium">{(typeof item.price === 'number' ? item.price.toFixed(3) : '0.000')} DT</span>
+                                <span className="font-medium">{(typeof item.p2 === 'number' ? item.p2.toFixed(3) : (typeof item.price === 'number' ? item.price.toFixed(3) : '0.000'))} TND</span>
                               </div>
                             ))}
                           </div>
@@ -665,7 +667,7 @@ export default function ProviderDashboard() {
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">Mode de paiement</p>
                   <div className="flex gap-2">
-                    {(['especes', 'facture', 'virement'] as const).map((mode) => (
+                    {(['especes', 'facture'] as const).map((mode) => (
                       <Button
                         key={mode}
                         size="sm"
@@ -757,11 +759,11 @@ export default function ProviderDashboard() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Montant total:</span>
-                        <span className="font-medium">{(typeof selectedOrder.totalAmount === 'number' ? selectedOrder.totalAmount.toFixed(3) : '0.000')} DT</span>
+                        <span className="font-medium">{(typeof selectedOrder.totalAmount === 'number' ? selectedOrder.totalAmount.toFixed(3) : '0.000')} TND</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Payout restaurant:</span>
-                        <span className="font-medium">{(typeof selectedOrder.restaurantPayout === 'number' ? selectedOrder.restaurantPayout.toFixed(3) : '0.000')} DT</span>
+                        <span className="font-medium">{(typeof selectedOrder.restaurantPayout === 'number' ? selectedOrder.restaurantPayout.toFixed(3) : '0.000')} TND</span>
                       </div>
                       {selectedOrder.deliveryDriver && (
                         <div className="flex justify-between">
@@ -783,13 +785,13 @@ export default function ProviderDashboard() {
                             <span className="font-medium">{item.name}</span>
                             <span className="text-muted-foreground ml-2">x{item.quantity}</span>
                           </div>
-                          <span className="font-medium">{(typeof item.price === 'number' ? item.price.toFixed(3) : '0.000')} DT</span>
+                          <span className="font-medium">{(typeof item.price === 'number' ? item.price.toFixed(3) : '0.000')} TND</span>
                         </div>
                       ))}
                       <div className="mt-4 pt-4 border-t">
                         <div className="flex justify-between items-center">
                           <span className="text-lg font-semibold">Total:</span>
-                          <span className="text-lg font-bold">{(typeof selectedOrder.totalAmount === 'number' ? selectedOrder.totalAmount.toFixed(3) : '0.000')} DT</span>
+                          <span className="text-lg font-bold">{(typeof selectedOrder.totalAmount === 'number' ? selectedOrder.totalAmount.toFixed(3) : '0.000')} TND</span>
                         </div>
                       </div>
                     </div>

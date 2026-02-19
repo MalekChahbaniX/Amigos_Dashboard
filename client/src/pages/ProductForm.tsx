@@ -38,7 +38,9 @@ interface Product {
    id: string;
    name: string;
    description?: string;
-   price: number;
+   price?: number;
+   p1?: number;
+   p2?: number;
    category: string;
    image?: string;
    status: "available" | "out_of_stock" | "discontinued";
@@ -54,10 +56,12 @@ interface Product {
     name: string;
     quantity?: number;
     unit?: string;
-    price: number;
+    price?: number;
     stock?: number;
     csR?: number;
     csC?: number;
+    p1?: number;
+    p2?: number;
   }>;
  }
 
@@ -70,6 +74,8 @@ interface ProductFormProps {
 interface ProductSize {
   name: string;
   price: string;
+  p1?: string;
+  p2?: string;
   stock?: string;
   csR?: string;
   csC?: string;
@@ -79,6 +85,8 @@ interface FormDataType {
   name: string;
   description: string;
   price: string;
+  p1?: string;
+  p2?: string;
   category: string;
   stock: string;
   image: string;
@@ -129,7 +137,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
     providerId: '',
     selectedOptionGroups: [] as string[],
     availability: true,
-    csR: '5',
+    csR: '0',
     csC: '0',
     deliveryCategory: 'restaurant',
     unitType: 'piece',
@@ -155,7 +163,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         providerId: product.providerId || '',
         selectedOptionGroups: product.optionGroups || [],
         availability: product.availability !== false,
-        csR: (product as any).csR?.toString() || '5',
+        csR: (product as any).csR?.toString() || '0',
         csC: (product as any).csC?.toString() || '0',
         deliveryCategory: (product as any).deliveryCategory || 'restaurant',
         unitType: (product as any).unitType || 'piece',
@@ -163,9 +171,9 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
         baseQuantity: (product as any).baseQuantity?.toString() || '1',
         variants: product.variants?.map(v => ({
           name: v.name,
-          price: v.price.toString(),
+          price: v.price?.toString() || '0',
           stock: v.stock?.toString() || '0',
-          csR: (v as any).csR?.toString() || '5',
+          csR: (v as any).csR?.toString() || '0',
           csC: (v as any).csC?.toString() || '0'
         })) || [],
       });
@@ -175,7 +183,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
   const addSize = () => {
     setFormData(prev => ({
       ...prev,
-      variants: [...prev.variants, { name: '', price: '0', stock: '0', csR: '5', csC: '0' }]
+      variants: [...prev.variants, { name: '', price: '0', stock: '0', csR: '0', csC: '0' }]
     }));
   };
 
@@ -257,7 +265,7 @@ export default function ProductForm({ product, onSuccess, onCancel }: ProductFor
           name: v.name,
           price: parseFloat(v.price) || 0,
           stock: parseInt(v.stock || '0') || 0,
-          csR: parseInt(v.csR || '5') || 5,
+          csR: parseInt(v.csR || '0') || 0,
           csC: parseInt(v.csC || '0') || 0
         }));
 

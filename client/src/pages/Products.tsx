@@ -46,6 +46,8 @@ interface Product {
     subOptions: Array<{
       name: string;
       price?: number;
+      p1?: number;
+      p2?: number;
     }>;
   }>;
   variants?: Array<{
@@ -1928,13 +1930,13 @@ export default function Products() {
                                     {variant.name}
                                   </span>
                                   <span className="font-semibold">
-                                    {price.toFixed(2)} DT
+                                    {price.toFixed(3)} TND
                                   </span>
                                   <span className="text-center font-semibold text-blue-600">
-                                    {p1.toFixed(2)} DT
+                                    {p1.toFixed(3)} TND
                                   </span>
                                   <span className="text-center font-semibold text-green-600">
-                                    {p2.toFixed(2)} DT
+                                    {p2.toFixed(3)} TND
                                   </span>
                                 </div>
                               );

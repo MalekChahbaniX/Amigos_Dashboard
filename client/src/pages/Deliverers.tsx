@@ -507,7 +507,7 @@ export default function Deliverers() {
               {deliverers
                 .reduce((sum, d) => sum + (Number(d.totalSolde) || 0), 0)
                 .toFixed(3)}{" "}
-              DT
+              TND
             </p>
           </CardContent>
         </Card>

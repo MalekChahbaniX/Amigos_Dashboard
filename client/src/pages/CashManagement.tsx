@@ -132,7 +132,7 @@ export default function CashManagement() {
 
   const formatCurrency = (value: string | number) => {
     const numValue = typeof value === 'string' ? parseFloat(value) : value;
-    return `${numValue.toFixed(3)} DH`;
+    return `${numValue.toFixed(3)} TND`;
   };
 
   return (

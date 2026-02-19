@@ -40,13 +40,15 @@ export interface OptionGroup {
 interface ProductOption {
   _id: string;
   name: string;
-  price: number;
+  price?: number;
   image?: string;
   availability?: boolean;
   optionGroups?: string[];
   storeId?: string;
   createdAt: string;
   updatedAt: string;
+  p1?: number;
+  p2?: number;
 }
 
 class ApiService {
@@ -197,6 +199,12 @@ class ApiService {
     activeDeliverers: number;
     todayRevenue: string;
     todaySolde: string;
+    weeklyOrders?: number;
+    weeklyOrdersTrend?: number;
+    weeklyRevenue?: number;
+    weeklyRevenueTrend?: number;
+    averageDeliveryTime?: number;
+    deliveryTimeTrend?: number;
   }> {
     return this.request('/dashboard/stats');
   }
@@ -848,15 +856,19 @@ class ApiService {
         subOptions: Array<{
           name: string;
           price?: number;
+          p1?: number;
+          p2?: number;
         }>;
       }>;
       sizes?: Array<{
         name: string;
-        price: number;
+        price?: number;
         stock?: number;
         p1?: number;
         p2?: number;
       }>;
+      p1?: number;
+      p2?: number;
     }>;
     total: number;
     page: number;
@@ -892,15 +904,19 @@ class ApiService {
       subOptions: Array<{
         name: string;
         price?: number;
+        p1?: number;
+        p2?: number;
       }>;
     }>;
     sizes?: Array<{
       name: string;
-      price: number;
+      price?: number;
       stock?: number;
       p1?: number;
       p2?: number;
     }>;
+    p1?: number;
+    p2?: number;
   }> {
     return this.request(`/products/${id}`);
   }
@@ -946,7 +962,7 @@ class ApiService {
   async createProduct(productData: {
     name: string;
     description?: string;
-    price: number;
+    price?: number;
     category: string;
     stock?: number;
     status?: "available" | "out_of_stock" | "discontinued";
@@ -955,10 +971,12 @@ class ApiService {
     imageFile?: File;
     variants?: Array<{
       name: string;
-      price: number;
+      price?: number;
       stock?: number;
       csR?: number;
       csC?: number;
+      p1?: number;
+      p2?: number;
     }>;
     options?: Array<{
       name: string;
@@ -967,8 +985,12 @@ class ApiService {
       subOptions: Array<{
         name: string;
         price?: number;
+        p1?: number;
+        p2?: number;
       }>;
     }>;
+    p1?: number;
+    p2?: number;
     csR?: number;
     csC?: number;
     deliveryCategory?: string;
@@ -1780,10 +1802,15 @@ class ApiService {
 
   // Get app fee only
   async getAppFee(): Promise<{
+    success: boolean;
     appFee: number;
     currency: string;
+    amigosBonusCourseAmount?: number;
+    amigosBonusEnabled?: boolean;
   }> {
-    return this.request('/app-settings/fee');
+    return this.request('/app-settings', {
+      method: 'GET',
+    });
   }
 
   // ===== CITY MANAGEMENT API METHODS =====
@@ -1801,6 +1828,62 @@ class ApiService {
     // Temporairement, retourner des données mockées
     // À remplacer par l'appel API réel quand l'endpoint sera créé
     return this.request('/cities');
+  }
+
+  // Get city settings by ID
+  async getCitySettings(cityId: string): Promise<{
+    success: boolean;
+    data: {
+      multiplicateur: number;
+    };
+  }> {
+    return this.request(`/cities/${cityId}/settings`, {
+      method: 'GET',
+    });
+  }
+
+  // Update city multiplicateur
+  async updateCityMultiplicateur(cityId: string, multiplicateur: number): Promise<{
+    success: boolean;
+    message: string;
+    data: any;
+  }> {
+    return this.request(`/cities/${cityId}/multiplicateur`, {
+      method: 'PUT',
+      body: JSON.stringify({ multiplicateur }),
+    });
+  }
+
+  // Get zone garanties by ID
+  async getZoneGaranties(zoneId: string): Promise<{
+    success: boolean;
+    data: {
+      minGarantieA1: number;
+      minGarantieA2: number;
+      minGarantieA3: number;
+      minGarantieA4: number;
+    };
+  }> {
+    return this.request(`/zones/${zoneId}/garanties`, {
+      method: 'GET',
+    });
+  }
+
+  // Update zone garanties
+  async updateZoneGaranties(zoneId: string, garanties: {
+    minGarantieA1: number;
+    minGarantieA2: number;
+    minGarantieA3: number;
+    minGarantieA4: number;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: any;
+  }> {
+    return this.request(`/zones/${zoneId}/garanties`, {
+      method: 'PUT',
+      body: JSON.stringify(garanties),
+    });
   }
 
   // Create new city
@@ -1948,11 +2031,13 @@ async getProductOptionById(id: string): Promise<ProductOption> {
 // Create product option
 async createProductOption(optionData: {
   name: string;
-  price: number;
+  price?: number;
   image?: string;
   availability?: boolean;
   groupId?: string;
   storeId?: string;
+  p1?: number;
+  p2?: number;
 }): Promise<{
   message: string;
   option: ProductOption;
@@ -2344,7 +2429,7 @@ async deleteProductOption(id: string): Promise<{
         payout: number;
       }>;
       totalPayout: number;
-      paymentMode: 'especes' | 'facture' | 'virement';
+      paymentMode: 'especes' | 'facture';
       paid: boolean;
       paidAt: string | null;
       orderCount: number;
@@ -2358,7 +2443,7 @@ async deleteProductOption(id: string): Promise<{
 
   async payProviderBalance(
     balanceId: string,
-    paymentMode: 'especes' | 'facture' | 'virement'
+    paymentMode: 'especes' | 'facture'
   ): Promise<{
     success: boolean;
     message: string;
@@ -2455,6 +2540,108 @@ async deleteProductOption(id: string): Promise<{
   }> {
     return this.request('/providers/me/orders/stats', {
       method: 'GET',
+    });
+  }
+
+  // ===== NOUVEAUX: Margin Settings API =====
+  async getMarginSettings(): Promise<{
+    success: boolean;
+    data: {
+      id: string;
+      C1: { marge: number; minimum: number; maximum: number; description: string };
+      C2: { marge: number; minimum: number; maximum: number; description: string };
+      C3: { marge: number; minimum: number; maximum: number; description: string };
+      isActive: boolean;
+      lastUpdated: string;
+    };
+  }> {
+    return this.request('/margin-settings', {
+      method: 'GET',
+    });
+  }
+
+  async updateMarginSettings(settings: {
+    C1?: { marge?: number; minimum?: number; maximum?: number };
+    C2?: { marge?: number; minimum?: number; maximum?: number };
+    C3?: { marge?: number; minimum?: number; maximum?: number };
+    isActive?: boolean;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: any;
+  }> {
+    return this.request('/margin-settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  }
+
+  async calculateMargin(orderType: string, baseAmount?: number): Promise<{
+    success: boolean;
+    data: {
+      orderType: string;
+      baseAmount?: number;
+      marginConfig: any;
+      calculatedMargin: number;
+      appliedAt: string;
+    };
+  }> {
+    return this.request('/margin-settings/calculate', {
+      method: 'POST',
+      body: JSON.stringify({ orderType, baseAmount }),
+    });
+  }
+
+  // ===== NOUVEAUX: Additional Fees API =====
+  async getAdditionalFees(): Promise<{
+    success: boolean;
+    data: {
+      id: string;
+      FRAIS_1: { amount: number; description: string; appliesTo: string[] };
+      FRAIS_2: { amount: number; description: string; appliesTo: string[] };
+      FRAIS_3: { amount: number; description: string; appliesTo: string[] };
+      FRAIS_4: { amount: number; description: string; appliesTo: string[] };
+      FRAIS_5: { amount: number; description: string; appliesTo: string[] };
+      isActive: boolean;
+      lastUpdated: string;
+    };
+  }> {
+    return this.request('/additional-fees', {
+      method: 'GET',
+    });
+  }
+
+  async updateAdditionalFees(fees: {
+    FRAIS_1?: { amount?: number; description?: string; appliesTo?: string[] };
+    FRAIS_2?: { amount?: number; description?: string; appliesTo?: string[] };
+    FRAIS_3?: { amount?: number; description?: string; appliesTo?: string[] };
+    FRAIS_4?: { amount?: number; description?: string; appliesTo?: string[] };
+    FRAIS_5?: { amount?: number; description?: string; appliesTo?: string[] };
+    isActive?: boolean;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: any;
+  }> {
+    return this.request('/additional-fees', {
+      method: 'PUT',
+      body: JSON.stringify(fees),
+    });
+  }
+
+  async calculateApplicableFees(orderType: string): Promise<{
+    success: boolean;
+    data: {
+      orderType: string;
+      totalFees: number;
+      applicableFees: Array<{ name: string; amount: number; description: string }>;
+      feesBreakdown: any;
+      calculatedAt: string;
+    };
+  }> {
+    return this.request('/additional-fees/calculate', {
+      method: 'POST',
+      body: JSON.stringify({ orderType }),
     });
   }
 }

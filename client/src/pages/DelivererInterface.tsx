@@ -62,20 +62,22 @@ interface DelivererOrder {
   items: Array<{
     name: string;
     quantity: number;
-    price: number;
+    price?: number;
+    p1?: number;
+    p2?: number;
   }>;
-  total: number;
-  solde: string | number;
-  soldeSimple?: number;
-  soldeDual?: number;
-  soldeTriple?: number;
+  total: number; // Calculé avec p2
+  solde: string | number; // Calculé avec p1
+  soldeSimple?: number; // Calculé avec p1
+  soldeDual?: number; // Calculé avec p1
+  soldeTriple?: number; // Calculé avec p1
   status: string;
   deliveryAddress: any;
   paymentMethod: string;
-  finalAmount: number;
+  finalAmount: number; // Calculé avec p2
   createdAt: string;
-  platformSolde: number;
-  restaurantPayout?: number; // Add deliverer payout field
+  platformSolde: number; // Calculé avec p1
+  restaurantPayout?: number; // Calculé avec p1
   isGrouped?: boolean;
   groupedOrders?: any[];
   providerPaymentMode?: string | any[];
@@ -515,15 +517,15 @@ export default function DelivererInterface() {
   const getOrderSolde = (order: DelivererOrder) => {
     // Priorité au payout livreur (restaurantPayout) si disponible
     if (typeof order.restaurantPayout === 'number') {
-      return `${order.restaurantPayout.toFixed(3)} DT`;
+      return `${order.restaurantPayout.toFixed(3)} TND`;
     }
     
     const t = (order.orderType || (order as any).type || '').toString();
-    if (t === 'A1' && typeof order.soldeSimple === 'number') return `${order.soldeSimple} DT`;
-    if (t === 'A2' && typeof order.soldeDual === 'number') return `${order.soldeDual} DT`;
-    if (t === 'A3' && typeof order.soldeTriple === 'number') return `${order.soldeTriple} DT`;
+    if (t === 'A1' && typeof order.soldeSimple === 'number') return `${order.soldeSimple} TND`;
+    if (t === 'A2' && typeof order.soldeDual === 'number') return `${order.soldeDual} TND`;
+    if (t === 'A3' && typeof order.soldeTriple === 'number') return `${order.soldeTriple} TND`;
     // fallback to generic solde
-    return typeof order.solde === 'number' ? `${order.solde} DT` : String(order.solde || '');
+    return typeof order.solde === 'number' ? `${order.solde} TND` : String(order.solde || '');
   };
 
   const formatDuration = (iso?: string | null) => {

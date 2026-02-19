@@ -13,8 +13,20 @@ interface DashboardStats {
   todayOrders: number;
   activeClients: number;
   activeDeliverers: number;
+  totalDeliverers?: number;
   todayRevenue: string;
   todaySolde: string;
+  ordersTrend?: number;
+  clientsTrend?: number;
+  deliverersTrend?: number;
+  revenueTrend?: number;
+  soldeTrend?: number;
+  weeklyOrders?: number;
+  weeklyOrdersTrend?: number;
+  weeklyRevenue?: number;
+  weeklyRevenueTrend?: number;
+  averageDeliveryTime?: number;
+  deliveryTimeTrend?: number;
   platformBalance?: {
     totalSolde: number;
     totalRevenue: number;
@@ -179,31 +191,32 @@ export default function Dashboard() {
           title="Commandes aujourd'hui"
           value={stats?.todayOrders?.toString() || "0"}
           icon={ShoppingBag}
-          trend={{ value: 12, isPositive: true }}
+          trend={stats?.ordersTrend ? { value: stats.ordersTrend, isPositive: stats.ordersTrend > 0 } : undefined}
         />
         <StatsCard
           title="Clients actifs"
           value={stats?.activeClients?.toString() || "0"}
           icon={Users}
-          trend={{ value: 8, isPositive: true }}
+          trend={stats?.clientsTrend ? { value: stats.clientsTrend, isPositive: stats.clientsTrend > 0 } : undefined}
         />
         <StatsCard
           title="Livreurs actifs"
           value={stats?.activeDeliverers?.toString() || "0"}
           icon={Truck}
-          description="Sur 32 total"
+          description={`Sur ${stats?.totalDeliverers || 0} total`}
+          trend={stats?.deliverersTrend ? { value: stats.deliverersTrend, isPositive: stats.deliverersTrend > 0 } : undefined}
         />
         <StatsCard
           title="Revenu du jour"
-          value={`${stats?.todayRevenue || "0"} DT`}
+          value={`${stats?.todayRevenue || "0"} TND`}
           icon={DollarSign}
-          trend={{ value: 15, isPositive: true }}
+          trend={stats?.revenueTrend ? { value: stats.revenueTrend, isPositive: stats.revenueTrend > 0 } : undefined}
         />
         <StatsCard
           title="Solde de la plateforme"
-          value={`${stats?.todaySolde || "0"} DT`}
+          value={`${stats?.todaySolde || "0"} TND`}
           icon={DollarSign}
-          trend={{ value: 12, isPositive: true }}
+          trend={stats?.soldeTrend ? { value: stats.soldeTrend, isPositive: stats.soldeTrend > 0 } : undefined}
           description="Revenue net après commissions"
         />
         
@@ -211,25 +224,25 @@ export default function Dashboard() {
           <div className="lg:col-span-4 grid gap-3 xs:gap-4 sm:gap-6 grid-cols-1 xs:grid-cols-2 lg:grid-cols-4">
             <StatsCard
               title="Revenu Total"
-              value={`${stats.platformBalance.totalRevenue.toFixed(3)} DT`}
+              value={`${stats.platformBalance.totalRevenue.toFixed(3)} TND`}
               icon={TrendingUp}
               description="Avant commissions"
             />
             <StatsCard
               title="Payout Restaurants"
-              value={`${stats.platformBalance.totalPayout.toFixed(3)} DT`}
+              value={`${stats.platformBalance.totalPayout.toFixed(3)} TND`}
               icon={TrendingDown}
               description="Aux prestataires"
             />
             <StatsCard
               title="Frais Livraison"
-              value={`${stats.platformBalance.totalDeliveryFee.toFixed(3)} DT`}
+              value={`${stats.platformBalance.totalDeliveryFee.toFixed(3)} TND`}
               icon={Truck}
               description="Transport"
             />
             <StatsCard
               title="Frais Application"
-              value={`${stats.platformBalance.totalAppFee.toFixed(3)} DT`}
+              value={`${stats.platformBalance.totalAppFee.toFixed(3)} TND`}
               icon={ShoppingBag}
               description="Catégorie-specific"
             />
@@ -259,7 +272,7 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center justify-between xs:justify-end gap-3 xs:gap-4 w-full xs:w-auto">
                     <div className="text-center xs:text-right">
-                      <div className="font-semibold text-sm xs:text-base">{order.total}</div>
+                      <div className="font-semibold text-sm xs:text-base">{parseFloat(order.total).toFixed(3)}</div>
                       <div className="text-xs text-muted-foreground flex items-center gap-1 justify-center xs:justify-end">
                         <Clock className="h-3 w-3" />
                         <span className="truncate">{order.time}</span>
@@ -332,18 +345,24 @@ export default function Dashboard() {
           <div className="grid gap-3 xs:gap-4 sm:gap-6 grid-cols-1 xs:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1 xs:space-y-2 text-center xs:text-left">
               <p className="text-xs xs:text-sm text-muted-foreground font-medium">Commandes totales</p>
-              <p className="text-xl xs:text-2xl sm:text-3xl font-semibold">856</p>
-              <p className="text-xs text-chart-2">+18% vs semaine dernière</p>
+              <p className="text-xl xs:text-2xl sm:text-3xl font-semibold">{stats?.weeklyOrders || 0}</p>
+              <p className={`text-xs ${stats?.weeklyOrdersTrend !== undefined ? (stats.weeklyOrdersTrend >= 0 ? 'text-chart-2' : 'text-destructive') : 'text-muted-foreground'}`}>
+                {stats?.weeklyOrdersTrend !== undefined ? `${stats.weeklyOrdersTrend > 0 ? '+' : ''}${stats.weeklyOrdersTrend}% vs semaine dernière` : 'Données indisponibles'}
+              </p>
             </div>
             <div className="space-y-1 xs:space-y-2 text-center xs:text-left">
               <p className="text-xs xs:text-sm text-muted-foreground font-medium">Revenu total</p>
-              <p className="text-xl xs:text-2xl sm:text-3xl font-semibold">38,420 DT</p>
-              <p className="text-xs text-chart-2">+22% vs semaine dernière</p>
+              <p className="text-xl xs:text-2xl sm:text-3xl font-semibold">{stats?.weeklyRevenue ? `${stats.weeklyRevenue.toFixed(3)} TND` : '0.000 TND'}</p>
+              <p className={`text-xs ${stats?.weeklyRevenueTrend !== undefined ? (stats.weeklyRevenueTrend >= 0 ? 'text-chart-2' : 'text-destructive') : 'text-muted-foreground'}`}>
+                {stats?.weeklyRevenueTrend !== undefined ? `${stats.weeklyRevenueTrend > 0 ? '+' : ''}${stats.weeklyRevenueTrend}% vs semaine dernière` : 'Données indisponibles'}
+              </p>
             </div>
             <div className="space-y-1 xs:space-y-2 text-center xs:text-left col-span-1 xs:col-span-2 lg:col-span-1">
               <p className="text-xs xs:text-sm text-muted-foreground font-medium">Temps moyen de livraison</p>
-              <p className="text-xl xs:text-2xl sm:text-3xl font-semibold">28 min</p>
-              <p className="text-xs text-chart-2">-5% vs semaine dernière</p>
+              <p className="text-xl xs:text-2xl sm:text-3xl font-semibold">{stats?.averageDeliveryTime || 0} min</p>
+              <p className={`text-xs ${stats?.deliveryTimeTrend !== undefined ? (stats.deliveryTimeTrend <= 0 ? 'text-chart-2' : 'text-destructive') : 'text-muted-foreground'}`}>
+                {stats?.deliveryTimeTrend !== undefined ? `${stats.deliveryTimeTrend > 0 ? '+' : ''}${stats.deliveryTimeTrend}% vs semaine dernière` : 'Données indisponibles'}
+              </p>
             </div>
           </div>
         </CardContent>
