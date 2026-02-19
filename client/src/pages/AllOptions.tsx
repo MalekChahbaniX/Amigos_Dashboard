@@ -30,7 +30,7 @@ import { apiService } from '@/lib/api'; // Import apiService
 interface ProductOption {
   _id: string;
   name: string;
-  price: number;
+  price?: number;
   image?: string;
   availability?: boolean;
   optionGroups?: any[];
@@ -176,7 +176,7 @@ export default function AllOptionsPage() {
                     )}
                   </TableCell>
                   <TableCell className="font-medium uppercase">{option.name}</TableCell>
-                  <TableCell>{option.price}</TableCell>
+                  <TableCell>{option.price ?? 0}</TableCell>
                   <TableCell className="text-sm text-gray-600">
                     {option.optionGroups && option.optionGroups.length > 0
                       ? `${option.optionGroups.length} groupe(s)`
